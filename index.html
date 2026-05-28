@@ -4,58 +4,69 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>낙서 용사 디펜스</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./src/css/style.css" />
 </head>
 <body>
   <div id="app">
-
-    <!-- 타이틀 화면 -->
-    <section id="titleScreen" class="screen active">
-      <h1>낙서 용사 디펜스</h1>
-      <button id="startBtn">게임 시작</button>
+    <section id="startScreen" class="screen">
+      <div class="start-content">
+        <h1>낙서 용사 디펜스</h1>
+        <p>내가 그린 낙서가 전투 유닛이 되는 라인 디펜스 게임</p>
+        <button id="startButton" type="button" class="primary-btn">시작하기</button>
+      </div>
     </section>
 
-    <!-- 그림판 화면 -->
-    <section id="drawScreen" class="screen">
-      <h2>캐릭터 그리기</h2>
+    <section id="drawScreen" class="screen hidden">
+      <header class="screen-header">
+        <h1>낙서 용사 디펜스</h1>
+        <h2>캐릭터 그리기</h2>
+      </header>
 
       <div class="draw-layout">
-        <canvas id="drawCanvas" width="512" height="512"></canvas>
+        <canvas id="drawCanvas" width="400" height="400"></canvas>
 
-        <div class="tool-panel">
+        <div class="draw-controls tool-panel">
           <label>
             캐릭터 이름
-            <input type="text" id="nameInput" value="용사" />
+            <input
+              type="text"
+              id="characterNameInput"
+              placeholder="캐릭터 이름 입력"
+              value="말랑 검사"
+            />
           </label>
 
           <div class="tool-group">
             <p>색상 선택</p>
 
+            <input id="colorPicker" type="color" value="#000000" />
+
             <div class="color-palette">
-              <button class="color-btn active" data-color="#000000" style="background-color: #000000;" title="검정"></button>
-              <button class="color-btn" data-color="#2196f3" style="background-color: #2196f3;" title="파랑"></button>
-              <button class="color-btn" data-color="#ffeb3b" style="background-color: #ffeb3b;" title="노랑"></button>
-              <button class="color-btn" data-color="#f44336" style="background-color: #f44336;" title="빨강"></button>
-              <button class="color-btn" data-color="#9c27b0" style="background-color: #9c27b0;" title="보라"></button>
+              <button type="button" class="color-btn active" data-color="#000000" style="background-color: #000000;" title="검정"></button>
+              <button type="button" class="color-btn" data-color="#2196f3" style="background-color: #2196f3;" title="파랑"></button>
+              <button type="button" class="color-btn" data-color="#ffeb3b" style="background-color: #ffeb3b;" title="노랑"></button>
+              <button type="button" class="color-btn" data-color="#f44336" style="background-color: #f44336;" title="빨강"></button>
+              <button type="button" class="color-btn" data-color="#9c27b0" style="background-color: #9c27b0;" title="보라"></button>
             </div>
           </div>
 
           <label>
             브러시 크기
-            <input type="range" id="brushSize" min="1" max="30" value="5" />
+            <input type="range" id="brushSizeInput" min="1" max="30" value="5" />
           </label>
 
-          <button id="eraserBtn">지우개</button>
-          <button id="undoBtn">되돌리기</button>
-          <button id="clearBtn">전체 지우기</button>
-          <button id="judgeBtn">AI 감정하기</button>
+          <button id="eraserButton" type="button">지우개</button>
+          <button id="undoButton" type="button">되돌리기</button>
+          <button id="clearButton" type="button">전체 지우기</button>
+          <button id="judgeButton" type="button" class="primary-btn">감정하기</button>
         </div>
       </div>
     </section>
 
-    <!-- AI 감정 화면 -->
-    <section id="judgeScreen" class="screen">
-      <h2>AI 감정 결과</h2>
+    <section id="judgeScreen" class="screen hidden">
+      <header class="screen-header">
+        <h1>감정 결과</h1>
+      </header>
 
       <div class="result-card">
         <img id="previewImage" alt="캐릭터 미리보기" />
@@ -75,20 +86,20 @@
         </div>
       </div>
 
-      <button id="goBattleBtn">전투 화면 테스트</button>
-      <button id="backDrawBtn">다시 그리기</button>
+      <button id="backDrawButton" type="button">다시 그리기</button>
+      <button id="battleStartButton" type="button" class="primary-btn">전투 시작</button>
     </section>
 
-    <!-- 전투 화면 -->
-    <section id="battleScreen" class="screen">
-      <h2>전투 화면</h2>
-      <canvas id="battleCanvas" width="800" height="400"></canvas>
-      <br />
-      <button id="backDrawFromBattleBtn">그림판으로</button>
-    </section>
+    <section id="battleScreen" class="screen hidden">
+      <header class="screen-header battle-header">
+        <h1>전투 화면</h1>
+        <button id="backDrawFromBattleButton" type="button">그림판으로</button>
+      </header>
 
+      <canvas id="battleCanvas" width="960" height="540"></canvas>
+    </section>
   </div>
 
-  <script src="main.js"></script>
+  <script type="module" src="./src/js/main.js"></script>
 </body>
 </html>

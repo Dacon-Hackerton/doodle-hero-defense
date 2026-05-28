@@ -5,8 +5,8 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background-color: #222;
-  color: white;
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 #app {
@@ -15,26 +15,92 @@ body {
 }
 
 .screen {
-  display: none;
-  padding: 30px;
+  position: relative;
+  min-height: 100vh;
+  padding: 28px;
   text-align: center;
 }
 
-.screen.active {
+.hidden,
+[hidden] {
+  display: none !important;
+}
+
+.screen-header {
+  max-width: 960px;
+  margin: 0 auto 18px;
+}
+
+.screen-header h1,
+.screen-header h2 {
+  margin: 0 0 10px;
+}
+
+.battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+canvas {
   display: block;
+  position: relative;
+  z-index: 1;
+}
+
+button,
+input,
+select {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 button {
   padding: 10px 16px;
   margin: 6px;
-  border: none;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
+  background-color: #ffffff;
+  color: #111827;
   cursor: pointer;
   font-weight: bold;
 }
 
+button:hover {
+  background-color: #e5e7eb;
+}
+
+.primary-btn {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.primary-btn:hover {
+  background-color: #1d4ed8;
+}
+
 input {
   padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.start-content {
+  max-width: 680px;
+  margin: 0 auto;
+  padding-top: 18vh;
+}
+
+.start-content h1 {
+  margin: 0 0 12px;
+}
+
+.start-content p {
+  margin: 0 0 24px;
+  color: #4b5563;
 }
 
 .draw-layout {
@@ -47,23 +113,30 @@ input {
 
 #drawCanvas {
   background-color: white;
-  border: 4px solid #111;
+  border: 3px solid #111827;
   cursor: crosshair;
+  max-width: 100%;
 }
 
 #battleCanvas {
   background-color: #d7ecff;
-  border: 4px solid #111;
+  border: 3px solid #111827;
+  display: block;
+  width: min(960px, 100%);
+  height: auto;
+  margin: 0 auto;
 }
 
 .tool-panel {
   width: 220px;
   padding: 16px;
-  background-color: #333;
-  border-radius: 12px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  color: #111827;
 }
 
 .tool-panel label {
@@ -85,6 +158,7 @@ input {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 8px;
 }
 
 .color-btn {
@@ -92,20 +166,22 @@ input {
   height: 34px;
   padding: 0;
   border: 3px solid transparent;
-  border-radius: 50%;
+  border-radius: 8px;
 }
 
 .color-btn.active {
-  border: 3px solid white;
-  outline: 3px solid #ff9800;
+  border-color: #ffffff;
+  outline: 3px solid #2563eb;
 }
 
 .result-card {
   width: 360px;
   margin: 20px auto;
   padding: 16px;
-  background-color: #333;
-  border-radius: 12px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
 }
 
 #previewImage {
@@ -113,17 +189,35 @@ input {
   height: 200px;
   background-color: white;
   object-fit: contain;
-  border: 2px solid #111;
+  border: 2px solid #111827;
 }
 
 .stat-box {
   margin-top: 12px;
   padding: 10px;
-  background-color: #222;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   text-align: left;
 }
 
 .stat-box p {
   margin: 6px 0;
+}
+
+@media (max-width: 720px) {
+  .screen {
+    padding: 18px;
+  }
+
+  .draw-layout,
+  .battle-header {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tool-panel,
+  .result-card {
+    width: min(100%, 400px);
+  }
 }
