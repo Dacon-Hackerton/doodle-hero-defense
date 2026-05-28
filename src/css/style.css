@@ -1,0 +1,41 @@
+:root {
+  color: #f8fafc;
+  background: #16181d;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(22, 24, 29, 0.96), rgba(37, 42, 46, 0.98)),
+    #16181d;
+}
+
+.battle-stage {
+  width: min(100vw, 1060px);
+  padding: 24px;
+}
+
+#battleCanvas {
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  border: 2px solid #2f3742;
+  background: #dbeafe;
+  image-rendering: auto;
+}
