@@ -1,41 +1,129 @@
-:root {
-  color: #f8fafc;
-  background: #16181d;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 * {
   box-sizing: border-box;
 }
 
-html,
 body {
-  width: 100%;
-  min-height: 100%;
   margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #222;
+  color: white;
 }
 
-body {
-  display: grid;
-  place-items: center;
+#app {
+  width: 100%;
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(22, 24, 29, 0.96), rgba(37, 42, 46, 0.98)),
-    #16181d;
 }
 
-.battle-stage {
-  width: min(100vw, 1060px);
-  padding: 24px;
+.screen {
+  display: none;
+  padding: 30px;
+  text-align: center;
+}
+
+.screen.active {
+  display: block;
+}
+
+button {
+  padding: 10px 16px;
+  margin: 6px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+input {
+  padding: 6px;
+}
+
+.draw-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+#drawCanvas {
+  background-color: white;
+  border: 4px solid #111;
+  cursor: crosshair;
 }
 
 #battleCanvas {
-  display: block;
-  width: 100%;
-  max-width: 960px;
-  aspect-ratio: 16 / 9;
-  margin: 0 auto;
-  border: 2px solid #2f3742;
-  background: #dbeafe;
-  image-rendering: auto;
+  background-color: #d7ecff;
+  border: 4px solid #111;
+}
+
+.tool-panel {
+  width: 220px;
+  padding: 16px;
+  background-color: #333;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tool-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.tool-group {
+  text-align: left;
+}
+
+.tool-group p {
+  margin: 0 0 8px 0;
+}
+
+.color-palette {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 50%;
+}
+
+.color-btn.active {
+  border: 3px solid white;
+  outline: 3px solid #ff9800;
+}
+
+.result-card {
+  width: 360px;
+  margin: 20px auto;
+  padding: 16px;
+  background-color: #333;
+  border-radius: 12px;
+}
+
+#previewImage {
+  width: 200px;
+  height: 200px;
+  background-color: white;
+  object-fit: contain;
+  border: 2px solid #111;
+}
+
+.stat-box {
+  margin-top: 12px;
+  padding: 10px;
+  background-color: #222;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.stat-box p {
+  margin: 6px 0;
 }
