@@ -3,66 +3,54 @@ import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-  const screens = {
-    draw: getRequiredElement("drawScreen"),
-    judge: getRequiredElement("judgeScreen"),
-    battle: getRequiredElement("battleScreen"),
-  };
+  const drawingCanvas = createDrawingCanvas();
+  const judgeManager = createJudgeManager();
 
-  const drawingCanvas = new DrawingCanvas({
-    canvas: getRequiredElement("drawCanvas"),
-    colorButtons: document.querySelectorAll(".color-btn"),
-    brushSizeInput: getRequiredElement("brushSize"),
-    eraserButton: getRequiredElement("eraserBtn"),
-    undoButton: getRequiredElement("undoBtn"),
-    clearButton: getRequiredElement("clearBtn"),
-  });
-
-  const judgeManager = new JudgeManager({
-    previewImage: getRequiredElement("previewImage"),
-    resultName: getRequiredElement("resultName"),
-    resultGrade: getRequiredElement("resultGrade"),
-    resultPower: getRequiredElement("resultPower"),
-    resultComment: getRequiredElement("resultComment"),
-    statAttack: getRequiredElement("statAttack"),
-    statHp: getRequiredElement("statHp"),
-    statSpeed: getRequiredElement("statSpeed"),
-    statAttackSpeed: getRequiredElement("statAttackSpeed"),
-    statRange: getRequiredElement("statRange"),
-    statCost: getRequiredElement("statCost"),
-  });
-
-  const nameInput = getRequiredElement("nameInput");
-  const judgeButton = getRequiredElement("judgeBtn");
-  const goBattleButton = getRequiredElement("goBattleBtn");
-  const backDrawButton = getRequiredElement("backDrawBtn");
-  const backDrawFromBattleButton = getRequiredElement("backDrawFromBattleBtn");
+  const characterNameInput = document.getElementById("characterNameInput");
+  const startButton = document.getElementById("startButton");
+  const judgeButton = document.getElementById("judgeButton");
+  const battleStartButton = document.getElementById("battleStartButton");
+  const backDrawButton = document.getElementById("backDrawButton");
+  const backDrawFromBattleButton = document.getElementById(
+    "backDrawFromBattleButton",
+  );
 
   let currentCharacter = null;
   let battleManager = null;
 
-  drawingCanvas.init();
-  showScreen(screens, "draw");
+  showScreen("startScreen");
 
-  judgeButton.addEventListener("click", () => {
+  bindClick(startButton, "startButton", () => {
+    showScreen("drawScreen");
+  });
+
+  bindClick(judgeButton, "judgeButton", () => {
+    if (!drawingCanvas || !judgeManager) {
+      return;
+    }
+
     currentCharacter = judgeManager.createCharacter({
-      originalName: nameInput.value,
+      originalName: characterNameInput?.value ?? "",
       imageData: drawingCanvas.toImageData(),
     });
 
     judgeManager.renderResult(currentCharacter);
-    showScreen(screens, "judge");
+    showScreen("judgeScreen");
   });
 
-  goBattleButton.addEventListener("click", () => {
+  bindClick(battleStartButton, "battleStartButton", () => {
+    if (!drawingCanvas || !judgeManager) {
+      return;
+    }
+
     if (!currentCharacter) {
       currentCharacter = judgeManager.createCharacter({
-        originalName: nameInput.value,
+        originalName: characterNameInput?.value ?? "",
         imageData: drawingCanvas.toImageData(),
       });
     }
 
-    showScreen(screens, "battle");
+    showScreen("battleScreen");
 
     if (!battleManager) {
       battleManager = new BattleManager("battleCanvas");
@@ -71,30 +59,95 @@ document.addEventListener("DOMContentLoaded", () => {
     battleManager.start(currentCharacter);
   });
 
-  backDrawButton.addEventListener("click", () => {
-    showScreen(screens, "draw");
+  bindClick(backDrawButton, "backDrawButton", () => {
+    showScreen("drawScreen");
   });
 
-  backDrawFromBattleButton.addEventListener("click", () => {
+  bindClick(backDrawFromBattleButton, "backDrawFromBattleButton", () => {
     battleManager?.stop();
-    showScreen(screens, "draw");
+    showScreen("drawScreen");
   });
 });
 
-function showScreen(screens, screenName) {
-  Object.entries(screens).forEach(([name, screen]) => {
-    const isActive = name === screenName;
-    screen.hidden = !isActive;
-    screen.classList.toggle("active", isActive);
+function showScreen(screenId) {
+  const screens = document.querySelectorAll(".screen");
+
+  screens.forEach((screen) => {
+    screen.classList.add("hidden");
+    screen.classList.remove("active");
+    screen.hidden = true;
   });
-}
 
-function getRequiredElement(id) {
-  const element = document.getElementById(id);
+  const targetScreen = document.getElementById(screenId);
 
-  if (!element) {
-    throw new Error(`Required element not found: ${id}`);
+  if (!targetScreen) {
+    console.warn(`${screenId} not found`);
+    return;
   }
 
-  return element;
+  targetScreen.hidden = false;
+  targetScreen.classList.remove("hidden");
+  targetScreen.classList.add("active");
+}
+
+function createDrawingCanvas() {
+  const canvas = document.getElementById("drawCanvas");
+  const brushSizeInput = document.getElementById("brushSizeInput");
+  const eraserButton = document.getElementById("eraserButton");
+  const undoButton = document.getElementById("undoButton");
+  const clearButton = document.getElementById("clearButton");
+
+  if (!canvas || !brushSizeInput || !eraserButton || !undoButton || !clearButton) {
+    console.warn("Drawing controls are incomplete");
+    return null;
+  }
+
+  const drawingCanvas = new DrawingCanvas({
+    canvas,
+    colorButtons: document.querySelectorAll(".color-btn"),
+    colorPicker: document.getElementById("colorPicker"),
+    brushSizeInput,
+    eraserButton,
+    undoButton,
+    clearButton,
+  });
+
+  drawingCanvas.init();
+  return drawingCanvas;
+}
+
+function createJudgeManager() {
+  const requiredIds = [
+    "previewImage",
+    "resultName",
+    "resultGrade",
+    "resultPower",
+    "resultComment",
+    "statAttack",
+    "statHp",
+    "statSpeed",
+    "statAttackSpeed",
+    "statRange",
+    "statCost",
+  ];
+
+  const elements = Object.fromEntries(
+    requiredIds.map((id) => [id, document.getElementById(id)]),
+  );
+
+  if (Object.values(elements).some((element) => !element)) {
+    console.warn("Judge result controls are incomplete");
+    return null;
+  }
+
+  return new JudgeManager(elements);
+}
+
+function bindClick(button, id, handler) {
+  if (!button) {
+    console.warn(`${id} not found`);
+    return;
+  }
+
+  button.addEventListener("click", handler);
 }

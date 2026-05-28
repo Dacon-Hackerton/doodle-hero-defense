@@ -2,6 +2,7 @@ export class DrawingCanvas {
   constructor({
     canvas,
     colorButtons,
+    colorPicker,
     brushSizeInput,
     eraserButton,
     undoButton,
@@ -10,6 +11,7 @@ export class DrawingCanvas {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.colorButtons = Array.from(colorButtons);
+    this.colorPicker = colorPicker;
     this.brushSizeInput = brushSizeInput;
     this.eraserButton = eraserButton;
     this.undoButton = undoButton;
@@ -49,6 +51,12 @@ export class DrawingCanvas {
       });
     });
 
+    if (this.colorPicker) {
+      this.colorPicker.addEventListener("input", (event) => {
+        this.selectCustomColor(event.target.value);
+      });
+    }
+
     this.brushSizeInput.addEventListener("input", (event) => {
       this.brushSize = Number(event.target.value) || 1;
     });
@@ -71,9 +79,20 @@ export class DrawingCanvas {
     this.isEraser = false;
     this.eraserButton.textContent = "지우개";
 
+    if (this.colorPicker) {
+      this.colorPicker.value = this.selectedColor;
+    }
+
     this.colorButtons.forEach((colorButton) => {
       colorButton.classList.toggle("active", colorButton === button);
     });
+  }
+
+  selectCustomColor(color) {
+    this.selectedColor = color || "#000000";
+    this.isEraser = false;
+    this.eraserButton.textContent = "지우개";
+    this.colorButtons.forEach((button) => button.classList.remove("active"));
   }
 
   toggleEraser() {
