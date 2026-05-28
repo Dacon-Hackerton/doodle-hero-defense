@@ -26,15 +26,37 @@ export class BattleManager {
     this.loop = this.loop.bind(this);
   }
 
-  start() {
-    this.createDummyBattleUnits();
+  start(allyCharacter) {
+    this.stop();
+    this.lastFrameTime = 0;
+    this.createBattleUnits(allyCharacter);
     this.battleState = BATTLE_STATE.PLAYING;
     this.renderer.render(this.getRenderState());
     this.animationFrameId = requestAnimationFrame(this.loop);
   }
 
-  createDummyBattleUnits() {
-    const allyCharacter = {
+  createBattleUnits(allyCharacter = this.createDummyAllyCharacter()) {
+    const playerCharacter = allyCharacter ?? this.createDummyAllyCharacter();
+    const enemyCharacter = this.createDummyEnemyCharacter();
+
+    this.units = [
+      createBattleUnit(
+        playerCharacter,
+        TEAM.ALLY,
+        BATTLE_CONFIG.allySpawnX,
+        BATTLE_CONFIG.unitY,
+      ),
+      createBattleUnit(
+        enemyCharacter,
+        TEAM.ENEMY,
+        BATTLE_CONFIG.enemySpawnX,
+        BATTLE_CONFIG.unitY,
+      ),
+    ];
+  }
+
+  createDummyAllyCharacter() {
+    return {
       id: "char_dummy_ally",
       name: "Ally Doodle",
       originalName: "Doodle Sword",
@@ -57,8 +79,10 @@ export class BattleManager {
         ownerName: "playerA",
       },
     };
+  }
 
-    const enemyCharacter = {
+  createDummyEnemyCharacter() {
+    return {
       id: "char_dummy_enemy",
       name: "Enemy Sketch",
       originalName: "Sketch Guard",
@@ -81,21 +105,6 @@ export class BattleManager {
         ownerName: "enemy",
       },
     };
-
-    this.units = [
-      createBattleUnit(
-        allyCharacter,
-        TEAM.ALLY,
-        BATTLE_CONFIG.allySpawnX,
-        BATTLE_CONFIG.unitY,
-      ),
-      createBattleUnit(
-        enemyCharacter,
-        TEAM.ENEMY,
-        BATTLE_CONFIG.enemySpawnX,
-        BATTLE_CONFIG.unitY,
-      ),
-    ];
   }
 
   loop(timestamp) {
@@ -130,5 +139,7 @@ export class BattleManager {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+
+    this.battleState = BATTLE_STATE.READY;
   }
 }
