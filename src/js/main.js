@@ -1,6 +1,7 @@
 import { BattleManager } from "./battle/BattleManager.js";
 import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
+import { StatCalculator } from "./drawing/StatCalculator.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const drawingCanvas = createDrawingCanvas();
@@ -29,9 +30,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    currentCharacter = judgeManager.createCharacter({
-      originalName: characterNameInput?.value ?? "",
-      imageData: drawingCanvas.toImageData(),
+    currentCharacter = createCharacterFromCurrentDrawing({
+      drawingCanvas,
+      judgeManager,
+      characterNameInput,
     });
 
     judgeManager.renderResult(currentCharacter);
@@ -44,9 +46,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!currentCharacter) {
-      currentCharacter = judgeManager.createCharacter({
-        originalName: characterNameInput?.value ?? "",
-        imageData: drawingCanvas.toImageData(),
+      currentCharacter = createCharacterFromCurrentDrawing({
+        drawingCanvas,
+        judgeManager,
+        characterNameInput,
       });
     }
 
@@ -60,11 +63,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {
+    currentCharacter = null;
     showScreen("drawScreen");
   });
 
   bindClick(backDrawFromBattleButton, "backDrawFromBattleButton", () => {
     battleManager?.stop();
+    currentCharacter = null;
     showScreen("drawScreen");
   });
 });
@@ -96,8 +101,16 @@ function createDrawingCanvas() {
   const eraserButton = document.getElementById("eraserButton");
   const undoButton = document.getElementById("undoButton");
   const clearButton = document.getElementById("clearButton");
+  const inkText = document.getElementById("inkText");
 
-  if (!canvas || !brushSizeInput || !eraserButton || !undoButton || !clearButton) {
+  if (
+    !canvas ||
+    !brushSizeInput ||
+    !eraserButton ||
+    !undoButton ||
+    !clearButton ||
+    !inkText
+  ) {
     console.warn("Drawing controls are incomplete");
     return null;
   }
@@ -105,11 +118,13 @@ function createDrawingCanvas() {
   const drawingCanvas = new DrawingCanvas({
     canvas,
     colorButtons: document.querySelectorAll(".color-btn"),
-    colorPicker: document.getElementById("colorPicker"),
+    colorPicker: null,
     brushSizeInput,
     eraserButton,
     undoButton,
     clearButton,
+    inkText,
+    maxInk: 128000,
   });
 
   drawingCanvas.init();
@@ -141,6 +156,25 @@ function createJudgeManager() {
   }
 
   return new JudgeManager(elements);
+}
+
+function createCharacterFromCurrentDrawing({
+  drawingCanvas,
+  judgeManager,
+  characterNameInput,
+}) {
+  const drawCanvas = document.getElementById("drawCanvas");
+
+  const { stats, grade } = StatCalculator.createStatsAndGrade(drawCanvas, {
+    canvasLevel: 1,
+  });
+
+  return judgeManager.createCharacter({
+    originalName: characterNameInput?.value ?? "",
+    imageData: drawingCanvas.toImageData(),
+    stats,
+    grade,
+  });
 }
 
 function bindClick(button, id, handler) {
