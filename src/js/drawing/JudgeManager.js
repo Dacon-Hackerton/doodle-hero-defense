@@ -1,13 +1,3 @@
-const DEFAULT_STATS = Object.freeze({
-  attack: 50,
-  hp: 300,
-  speed: 1.6,
-  attackSpeed: 1.0,
-  range: 120,
-  cost: 240,
-  power: 9187,
-});
-
 const NAME_PREFIXES = [
   "불꽃",
   "심연의",
@@ -44,8 +34,8 @@ export class JudgeManager {
     this.statCost = statCost;
   }
 
-  createCharacter({ originalName, imageData }) {
-    const safeOriginalName = String(originalName ?? "").trim() || "말랑 검사";
+  createCharacter({ originalName, imageData, stats, grade }) {
+    const safeOriginalName = String(originalName ?? "").trim() || "용사";
     const prefix =
       NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
 
@@ -54,11 +44,11 @@ export class JudgeManager {
       name: `${prefix} ${safeOriginalName}`,
       originalName: safeOriginalName,
       imageData,
-      grade: "A",
+      grade,
 
       source: "local",
 
-      stats: { ...DEFAULT_STATS },
+      stats,
 
       meta: {
         createdAt: Date.now(),

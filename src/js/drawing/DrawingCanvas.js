@@ -7,6 +7,8 @@ export class DrawingCanvas {
     eraserButton,
     undoButton,
     clearButton,
+    inkText,
+    maxInk = 128000,
   }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
@@ -16,12 +18,21 @@ export class DrawingCanvas {
     this.eraserButton = eraserButton;
     this.undoButton = undoButton;
     this.clearButton = clearButton;
+    this.inkText = inkText;
 
     this.isDrawing = false;
     this.selectedColor = "#000000";
     this.brushSize = Number(brushSizeInput.value) || 5;
     this.isEraser = false;
+
     this.undoStack = [];
+
+    this.maxInk = maxInk;
+    this.inkUsed = 0;
+    this.inkRemain = maxInk;
+
+    this.lastPoint = null;
+    this.hasStrokeChanged = false;
 
     this.startDrawing = this.startDrawing.bind(this);
     this.draw = this.draw.bind(this);
@@ -35,6 +46,7 @@ export class DrawingCanvas {
     this.canvas.style.touchAction = "none";
 
     this.saveCanvasState();
+    this.updateInkUI();
     this.bindEvents();
   }
 
@@ -115,16 +127,23 @@ export class DrawingCanvas {
 
   startDrawing(event) {
     event.preventDefault();
+
+    if (!this.isPointInsideCanvas(event)) {
+      return;
+    }
+
+    if (!this.isEraser && this.inkRemain <= 0) {
+      return;
+    }
+
     this.isDrawing = true;
-    this.saveCanvasState();
+    this.hasStrokeChanged = false;
 
     const position = this.getCanvasPoint(event);
+    this.lastPoint = position;
+
     this.ctx.beginPath();
     this.ctx.moveTo(position.x, position.y);
-
-    if (event.pointerId !== undefined) {
-      this.canvas.setPointerCapture(event.pointerId);
-    }
   }
 
   draw(event) {
@@ -133,7 +152,40 @@ export class DrawingCanvas {
     }
 
     event.preventDefault();
+
+    if (!this.isPointInsideCanvas(event)) {
+      this.stopDrawing(event);
+      return;
+    }
+
     const position = this.getCanvasPoint(event);
+
+    if (!this.lastPoint) {
+      this.lastPoint = position;
+      return;
+    }
+
+    const distance = this.calculateDistance(this.lastPoint, position);
+
+    if (distance <= 0) {
+      return;
+    }
+
+    const inkCost = this.calculateInkCost(distance);
+
+    if (!this.isEraser) {
+      if (this.inkRemain <= 0) {
+        this.stopDrawing(event);
+        return;
+      }
+
+      if (inkCost > this.inkRemain) {
+        this.stopDrawing(event);
+        return;
+      }
+
+      this.useInk(inkCost);
+    }
 
     this.ctx.lineWidth = this.brushSize;
 
@@ -147,6 +199,9 @@ export class DrawingCanvas {
     this.ctx.lineTo(position.x, position.y);
     this.ctx.stroke();
     this.ctx.globalCompositeOperation = "source-over";
+
+    this.lastPoint = position;
+    this.hasStrokeChanged = true;
   }
 
   stopDrawing(event) {
@@ -155,19 +210,24 @@ export class DrawingCanvas {
     }
 
     this.isDrawing = false;
+    this.lastPoint = null;
     this.ctx.closePath();
 
-    if (
-      event?.pointerId !== undefined
-      && this.canvas.hasPointerCapture(event.pointerId)
-    ) {
-      this.canvas.releasePointerCapture(event.pointerId);
+    if (this.hasStrokeChanged) {
+      this.saveCanvasState();
     }
+
+    this.hasStrokeChanged = false;
   }
 
   clearCanvas() {
-    this.saveCanvasState();
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.inkUsed = 0;
+    this.inkRemain = this.maxInk;
+
+    this.saveCanvasState();
+    this.updateInkUI();
   }
 
   undoCanvas() {
@@ -176,8 +236,15 @@ export class DrawingCanvas {
     }
 
     this.undoStack.pop();
+
     const previousState = this.undoStack[this.undoStack.length - 1];
-    this.ctx.putImageData(previousState, 0, 0);
+
+    this.ctx.putImageData(previousState.imageData, 0, 0);
+
+    this.inkUsed = previousState.inkUsed;
+    this.inkRemain = previousState.inkRemain;
+
+    this.updateInkUI();
   }
 
   saveCanvasState() {
@@ -188,11 +255,79 @@ export class DrawingCanvas {
       this.canvas.height,
     );
 
-    this.undoStack.push(imageData);
+    this.undoStack.push({
+      imageData,
+      inkUsed: this.inkUsed,
+      inkRemain: this.inkRemain,
+    });
 
     if (this.undoStack.length > 20) {
       this.undoStack.shift();
     }
+  }
+
+  calculateDistance(pointA, pointB) {
+    const dx = pointA.x - pointB.x;
+    const dy = pointA.y - pointB.y;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  calculateInkCost(distance) {
+    return distance * this.brushSize;
+  }
+
+  useInk(amount) {
+    this.inkUsed += amount;
+    this.inkRemain = Math.max(0, this.maxInk - this.inkUsed);
+    this.updateInkUI();
+  }
+
+  updateInkUI() {
+    if (!this.inkText) {
+      return;
+    }
+
+    const remainPercent = Math.max(
+      0,
+      Math.floor((this.inkRemain / this.maxInk) * 100),
+    );
+
+    this.inkText.textContent = `잉크: ${remainPercent}%`;
+  }
+
+  getInkInfo() {
+    return {
+      maxInk: this.maxInk,
+      inkUsed: Math.floor(this.inkUsed),
+      inkRemain: Math.floor(this.inkRemain),
+      inkRemainPercent: Math.max(
+        0,
+        Math.floor((this.inkRemain / this.maxInk) * 100),
+      ),
+    };
+  }
+
+  setMaxInk(maxInk) {
+    this.maxInk = maxInk;
+    this.inkUsed = 0;
+    this.inkRemain = maxInk;
+    this.undoStack = [];
+
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.saveCanvasState();
+    this.updateInkUI();
+  }
+
+  isPointInsideCanvas(event) {
+    const rect = this.canvas.getBoundingClientRect();
+
+    return (
+      event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom
+    );
   }
 
   getCanvasPoint(event) {
