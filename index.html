@@ -81,13 +81,49 @@
         <p id="resultComment">AI 감정 코멘트</p>
 
         <div class="stat-box">
-          <p id="statAttack">공격력: 0</p>
-          <p id="statHp">체력: 0</p>
-          <p id="statSpeed">이동 속도: 0</p>
-          <p id="statAttackSpeed">공격 속도: 0</p>
-          <p id="statRange">사거리: 0</p>
-          <p id="statCost">소환 비용: 0</p>
+          <div class="stat-row">
+            <span>공격력</span>
+            <strong id="statAttack">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>체력</span>
+            <strong id="statHp">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>이동 속도</span>
+            <strong id="statSpeed">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>공격 속도</span>
+            <strong id="statAttackSpeed">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>사거리</span>
+            <strong id="statRange">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>소환 비용</span>
+            <strong id="statCost">0</strong>
+          </div>
         </div>
+      </div>
+
+      <div class="slot-section">
+        <h3>캐릭터 슬롯</h3>
+
+        <div id="characterSlots" class="character-slots">
+          <button type="button" class="character-slot" data-slot-index="0">
+            빈 슬롯
+          </button>
+          <button type="button" class="character-slot" data-slot-index="1">
+            빈 슬롯
+          </button>
+          <button type="button" class="character-slot" data-slot-index="2">
+            빈 슬롯
+          </button>
+        </div>
+
+        <button id="saveSlotButton" type="button">현재 캐릭터 슬롯에 등록 / 교체</button>
       </div>
 
       <button id="backDrawButton" type="button">다시 그리기</button>

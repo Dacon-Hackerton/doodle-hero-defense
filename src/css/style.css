@@ -219,8 +219,110 @@ input {
   text-align: left;
 }
 
-.stat-box p {
-  margin: 6px 0;
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-row span {
+  color: #4b5563;
+}
+
+.stat-row strong {
+  color: #111827;
+}
+
+.slot-section {
+  width: 560px;
+  max-width: 100%;
+  margin: 20px auto;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+}
+
+.slot-section h3 {
+  margin: 0 0 12px;
+}
+
+.character-slots {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+}
+
+.character-slot {
+  width: 160px;
+  height: 160px;
+  padding: 8px;
+  border: 2px dashed #cbd5e1;
+  background-color: #f9fafb;
+  color: #111827;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  text-align: center;
+  overflow: hidden;
+}
+
+.character-slot.filled {
+  border-style: solid;
+  border-color: #2563eb;
+  background-color: #eff6ff;
+}
+
+.character-slot.selected {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px #f59e0b;
+}
+
+.slot-preview-image {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.slot-info {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.slot-name {
+  font-weight: bold;
+  font-size: 12px;
+  word-break: keep-all;
+}
+
+.slot-power {
+  font-size: 12px;
+  color: #4b5563;
 }
 
 @media (max-width: 720px) {
@@ -236,8 +338,19 @@ input {
   }
 
   .tool-panel,
-  .result-card {
+  .result-card,
+  .slot-section {
     width: min(100%, 400px);
+  }
+
+  .character-slots {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .character-slot {
+    width: min(100%, 320px);
+    height: 150px;
   }
 
   #battleStatusText {
