@@ -70,7 +70,8 @@ export class BattleRenderer {
   renderBase(base) {
     const { ctx } = this;
     const isEnemy = base.team === TEAM.ENEMY;
-    const hpRatio = this.clampRatio(base.currentHp / base.maxHp);
+    const currentHp = this.getBaseHp(base);
+    const hpRatio = this.clampRatio(currentHp / base.maxHp);
 
     ctx.fillStyle = isEnemy ? "#7f1d1d" : "#1d4ed8";
     ctx.fillRect(base.x, base.y, base.width, base.height);
@@ -89,7 +90,7 @@ export class BattleRenderer {
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.fillText(
-      `${Math.ceil(base.currentHp)}/${base.maxHp}`,
+      `${Math.ceil(currentHp)}/${base.maxHp}`,
       base.x + base.width / 2,
       base.y - 30,
     );
@@ -244,6 +245,10 @@ export class BattleRenderer {
     }
 
     return this.imageCache.get(imageData);
+  }
+
+  getBaseHp(base) {
+    return base?.currentHp ?? base?.hp ?? 0;
   }
 
   clampRatio(value) {

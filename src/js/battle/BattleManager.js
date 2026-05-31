@@ -173,32 +173,49 @@ export class BattleManager {
 
   updateUnits(deltaTime) {
     this.getUnits().forEach((unit) => {
+      if (this.battleState !== BATTLE_STATE.PLAYING) {
+        return;
+      }
+
       if (unit.isDead || unit.state === UNIT_STATE.DEAD) {
         return;
       }
 
       unit.attackCooldown = Math.max(0, unit.attackCooldown - deltaTime);
 
-      const target = this.findClosestTarget(unit);
+      const targetUnit = this.findClosestUnitTargetInRange(unit);
 
-      if (target && this.isInRange(unit, target)) {
-        this.attackTarget(unit, target);
+      if (targetUnit) {
+        this.attackTarget(unit, {
+          type: "unit",
+          unit: targetUnit,
+        });
+        return;
+      }
+
+      const targetBase = this.findEnemyBaseTargetInRange(unit);
+
+      if (targetBase) {
+        this.attackTarget(unit, {
+          type: "base",
+          base: targetBase,
+        });
         return;
       }
 
       unit.state = UNIT_STATE.MOVE;
       unit.targetUnitId = null;
+      unit.target = null;
       updateUnit(unit, deltaTime);
-      this.applyBaseReachDamage(unit);
     });
   }
 
-  findClosestTarget(unit) {
+  findClosestUnitTargetInRange(unit) {
     const candidates =
       unit.team === TEAM.ALLY ? this.enemyUnits : this.allyUnits;
 
     return candidates
-      .filter((candidate) => !candidate.isDead)
+      .filter((candidate) => !candidate.isDead && this.isUnitInRange(unit, candidate))
       .reduce((closest, candidate) => {
         const distance = this.getUnitDistance(unit, candidate);
 
@@ -210,52 +227,64 @@ export class BattleManager {
       }, null)?.unit ?? null;
   }
 
-  isInRange(unit, target) {
-    return this.getUnitDistance(unit, target) <= unit.range;
-  }
-
-  attackTarget(unit, target) {
-    unit.state = UNIT_STATE.ATTACK;
-    unit.targetUnitId = target.unitId;
-
-    if (unit.attackCooldown > 0) {
-      return;
-    }
-
-    target.currentHp = Math.max(0, target.currentHp - unit.attack);
-    unit.attackCooldown = 1 / unit.attackSpeed;
-
-    if (target.currentHp <= 0) {
-      this.markUnitDead(target);
-    }
-  }
-
-  applyBaseReachDamage(unit) {
-    if (unit.isDead) {
-      return;
-    }
-
+  findEnemyBaseTargetInRange(unit) {
     const targetBase =
       unit.team === TEAM.ALLY
         ? this.getBase(TEAM.ENEMY)
         : this.getBase(TEAM.ALLY);
 
-    if (!targetBase) {
+    if (!targetBase || this.getBaseHp(targetBase) <= 0) {
+      return null;
+    }
+
+    return this.isBaseInRange(unit, targetBase) ? targetBase : null;
+  }
+
+  isUnitInRange(unit, target) {
+    return this.getUnitDistance(unit, target) <= unit.range;
+  }
+
+  isBaseInRange(unit, base) {
+    return this.getBaseDistance(unit, base) <= unit.range;
+  }
+
+  attackTarget(unit, target) {
+    unit.state = UNIT_STATE.ATTACK;
+
+    if (target.type === "unit") {
+      unit.targetUnitId = target.unit.unitId;
+      unit.target = {
+        type: "unit",
+        id: target.unit.unitId,
+      };
+    } else {
+      unit.targetUnitId = null;
+      unit.target = {
+        type: "base",
+        team: target.base.team,
+      };
+    }
+
+    if (unit.attackCooldown > 0) {
       return;
     }
 
-    const reachedBase =
-      unit.team === TEAM.ALLY
-        ? unit.x + unit.width >= targetBase.x
-        : unit.x <= targetBase.x + targetBase.width;
+    if (target.type === "unit") {
+      target.unit.currentHp = Math.max(0, target.unit.currentHp - unit.attack);
+    } else {
+      applyBaseDamage(target.base, unit.attack);
+    }
 
-    if (!reachedBase) {
+    unit.attackCooldown = 1 / unit.attackSpeed;
+
+    if (target.type === "unit" && target.unit.currentHp <= 0) {
+      this.markUnitDead(target.unit);
       return;
     }
 
-    const damageToBase = Math.max(unit.attack * 2, BATTLE_CONFIG.baseDamage);
-    applyBaseDamage(targetBase, damageToBase);
-    this.markUnitDead(unit);
+    if (target.type === "base" && this.getBaseHp(target.base) <= 0) {
+      this.checkWinLose();
+    }
   }
 
   cleanupDeadUnits() {
@@ -267,7 +296,17 @@ export class BattleManager {
     this.getUnits().forEach((unit) => {
       if (unit.targetUnitId && !liveUnitIds.has(unit.targetUnitId)) {
         unit.targetUnitId = null;
+        unit.target = null;
         unit.state = UNIT_STATE.MOVE;
+      }
+
+      if (unit.target?.type === "base") {
+        const targetBase = this.getBase(unit.target.team);
+
+        if (!targetBase || this.getBaseHp(targetBase) <= 0) {
+          unit.target = null;
+          unit.state = UNIT_STATE.MOVE;
+        }
       }
     });
   }
@@ -276,12 +315,12 @@ export class BattleManager {
     const allyBase = this.getBase(TEAM.ALLY);
     const enemyBase = this.getBase(TEAM.ENEMY);
 
-    if (enemyBase?.currentHp <= 0) {
+    if (enemyBase && this.getBaseHp(enemyBase) <= 0) {
       this.finishBattle(BATTLE_STATE.WIN, "WIN");
       return;
     }
 
-    if (allyBase?.currentHp <= 0) {
+    if (allyBase && this.getBaseHp(allyBase) <= 0) {
       this.finishBattle(BATTLE_STATE.LOSE, "LOSE");
     }
   }
@@ -298,6 +337,7 @@ export class BattleManager {
     unit.isDead = true;
     unit.state = UNIT_STATE.DEAD;
     unit.targetUnitId = null;
+    unit.target = null;
   }
 
   getUnitDistance(unitA, unitB) {
@@ -306,6 +346,18 @@ export class BattleManager {
 
   getUnitCenterX(unit) {
     return unit.x + unit.width / 2;
+  }
+
+  getBaseDistance(unit, base) {
+    if (unit.team === TEAM.ALLY) {
+      return Math.max(0, base.x - (unit.x + unit.width));
+    }
+
+    return Math.max(0, unit.x - (base.x + base.width));
+  }
+
+  getBaseHp(base) {
+    return base?.currentHp ?? base?.hp ?? 0;
   }
 
   getBase(team) {

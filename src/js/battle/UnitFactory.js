@@ -52,6 +52,7 @@ export function createBattleUnit(
 
     attackCooldown: 0,
     targetUnitId: null,
+    target: null,
 
     state: UNIT_STATE.MOVE,
     isDead: false,
