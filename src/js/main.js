@@ -19,7 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
     "backDrawFromBattleButton",
   );
 
+  const saveSlotButton = document.getElementById("saveSlotButton");
+  const slotButtons = document.querySelectorAll(".character-slot");
+
   let currentCharacter = null;
+  let selectedCharacter = null;
+  let selectedSlotIndex = null;
+  let characterSlots = [null, null, null];
   let battleManager = null;
 
   showScreen("startScreen");
@@ -43,17 +49,63 @@ document.addEventListener("DOMContentLoaded", () => {
     showScreen("judgeScreen");
   });
 
-  bindClick(battleStartButton, "battleStartButton", () => {
-    if (!drawingCanvas || !judgeManager) {
+  bindClick(saveSlotButton, "saveSlotButton", () => {
+    if (!currentCharacter) {
+      console.warn("등록할 캐릭터가 없습니다.");
       return;
     }
 
-    if (!currentCharacter) {
-      currentCharacter = createCharacterFromCurrentDrawing({
-        drawingCanvas,
-        judgeManager,
-        characterNameInput,
-      });
+    const emptySlotIndex = characterSlots.findIndex((slot) => slot === null);
+
+    let targetIndex = null;
+
+    if (emptySlotIndex !== -1) {
+      targetIndex = emptySlotIndex;
+    } else {
+      if (selectedSlotIndex === null) {
+        console.warn("교체할 슬롯을 먼저 선택하세요.");
+        return;
+      }
+
+      targetIndex = selectedSlotIndex;
+    }
+
+    characterSlots[targetIndex] = currentCharacter;
+    selectedSlotIndex = targetIndex;
+    selectedCharacter = currentCharacter;
+
+    renderCharacterSlots(characterSlots, selectedSlotIndex);
+    judgeManager.renderResult(selectedCharacter);
+  });
+
+  slotButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const slotIndex = Number(button.dataset.slotIndex);
+      const character = characterSlots[slotIndex];
+
+      selectedSlotIndex = slotIndex;
+
+      if (!character) {
+        selectedCharacter = null;
+        renderCharacterSlots(characterSlots, selectedSlotIndex);
+        return;
+      }
+
+      selectedCharacter = character;
+      renderCharacterSlots(characterSlots, selectedSlotIndex);
+      judgeManager.renderResult(selectedCharacter);
+    });
+  });
+
+  bindClick(battleStartButton, "battleStartButton", () => {
+    if (!areAllSlotsFilled(characterSlots)) {
+      console.warn("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
+      return;
+    }
+
+    if (!selectedCharacter) {
+      console.warn("전투에 사용할 캐릭터 슬롯을 선택하세요.");
+      return;
     }
 
     showScreen("battleScreen");
@@ -63,23 +115,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     battleManager.setStatusElement(battleStatusText);
-    battleManager.startBattle([currentCharacter]);
+    battleManager.startBattle([selectedCharacter]);
   });
 
   bindClick(summonAllyButton, "summonAllyButton", () => {
-    if (!battleManager || !currentCharacter) {
+    if (!battleManager || !selectedCharacter) {
       return;
     }
 
-    battleManager.summonAlly(currentCharacter);
+    battleManager.summonAlly(selectedCharacter);
   });
 
   bindClick(restartBattleButton, "restartBattleButton", () => {
-    if (!battleManager || !currentCharacter) {
+    if (!battleManager || !selectedCharacter) {
       return;
     }
 
-    battleManager.startBattle([currentCharacter]);
+    battleManager.startBattle([selectedCharacter]);
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {
@@ -89,7 +141,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   bindClick(backDrawFromBattleButton, "backDrawFromBattleButton", () => {
     battleManager?.stop();
-    currentCharacter = null;
     showScreen("drawScreen");
   });
 });
@@ -195,6 +246,44 @@ function createCharacterFromCurrentDrawing({
     stats,
     grade,
   });
+}
+
+function renderCharacterSlots(characterSlots, selectedSlotIndex) {
+  const slotButtons = document.querySelectorAll(".character-slot");
+
+  slotButtons.forEach((button, index) => {
+    const character = characterSlots[index];
+
+    button.classList.remove("filled");
+    button.classList.remove("selected");
+
+    if (index === selectedSlotIndex) {
+      button.classList.add("selected");
+    }
+
+    if (!character) {
+      button.innerHTML = `
+        <div class="slot-info">
+          <div class="slot-name">빈 슬롯</div>
+        </div>
+      `;
+      return;
+    }
+
+    button.classList.add("filled");
+
+    button.innerHTML = `
+      <img class="slot-preview-image" src="${character.imageData}" alt="${character.name}" />
+      <div class="slot-info">
+        <div class="slot-name">${character.name}</div>
+        <div class="slot-power">${character.grade} / 전투력 ${character.stats.power}</div>
+      </div>
+    `;
+  });
+}
+
+function areAllSlotsFilled(characterSlots) {
+  return characterSlots.every((character) => character !== null);
 }
 
 function bindClick(button, id, handler) {
