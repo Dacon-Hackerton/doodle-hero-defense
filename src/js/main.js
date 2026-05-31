@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const startButton = document.getElementById("startButton");
   const judgeButton = document.getElementById("judgeButton");
   const battleStartButton = document.getElementById("battleStartButton");
+  const summonAllyButton = document.getElementById("summonAllyButton");
+  const restartBattleButton = document.getElementById("restartBattleButton");
+  const battleStatusText = document.getElementById("battleStatusText");
   const backDrawButton = document.getElementById("backDrawButton");
   const backDrawFromBattleButton = document.getElementById(
     "backDrawFromBattleButton",
@@ -59,7 +62,24 @@ document.addEventListener("DOMContentLoaded", () => {
       battleManager = new BattleManager("battleCanvas");
     }
 
-    battleManager.start(currentCharacter);
+    battleManager.setStatusElement(battleStatusText);
+    battleManager.startBattle([currentCharacter]);
+  });
+
+  bindClick(summonAllyButton, "summonAllyButton", () => {
+    if (!battleManager || !currentCharacter) {
+      return;
+    }
+
+    battleManager.summonAlly(currentCharacter);
+  });
+
+  bindClick(restartBattleButton, "restartBattleButton", () => {
+    if (!battleManager || !currentCharacter) {
+      return;
+    }
+
+    battleManager.startBattle([currentCharacter]);
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {

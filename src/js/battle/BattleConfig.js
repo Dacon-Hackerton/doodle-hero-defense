@@ -15,6 +15,13 @@ export const BATTLE_CONFIG = Object.freeze({
   baseHp: 1000,
   baseMoveSpeed: 60,
 
+  startCost: 0,
+  maxCost: 1000,
+  costRegenPerSecond: 80,
+
+  enemySpawnInterval: 3.0,
+  baseDamage: 80,
+
   baseWidth: 60,
   baseHeight: 170,
   baseY: 285,

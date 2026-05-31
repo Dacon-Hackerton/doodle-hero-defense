@@ -40,7 +40,7 @@ export class StatCalculator {
   }
 
   static analyzeCanvas(canvas) {
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imageData.data;
 

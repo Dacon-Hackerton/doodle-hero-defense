@@ -11,7 +11,7 @@ export class DrawingCanvas {
     maxInk = 128000,
   }) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
+    this.ctx = canvas.getContext("2d", { willReadFrequently: true });
     this.colorButtons = Array.from(colorButtons);
     this.colorPicker = colorPicker;
     this.brushSizeInput = brushSizeInput;
