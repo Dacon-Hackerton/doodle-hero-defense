@@ -127,6 +127,24 @@ input {
   margin: 0 auto;
 }
 
+.battle-controls {
+  width: min(960px, 100%);
+  margin: 14px auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#battleStatusText {
+  min-width: 280px;
+  margin: 6px 0;
+  color: #111827;
+  font-weight: bold;
+  text-align: left;
+}
+
 .tool-panel {
   width: 220px;
   padding: 16px;
@@ -211,7 +229,8 @@ input {
   }
 
   .draw-layout,
-  .battle-header {
+  .battle-header,
+  .battle-controls {
     flex-direction: column;
     align-items: center;
   }
@@ -219,5 +238,11 @@ input {
   .tool-panel,
   .result-card {
     width: min(100%, 400px);
+  }
+
+  #battleStatusText {
+    min-width: 0;
+    width: 100%;
+    text-align: center;
   }
 }

@@ -12,6 +12,7 @@ export function createBase(team) {
     width: BATTLE_CONFIG.baseWidth,
     height: BATTLE_CONFIG.baseHeight,
     maxHp: BATTLE_CONFIG.baseHp,
+    hp: BATTLE_CONFIG.baseHp,
     currentHp: BATTLE_CONFIG.baseHp,
     isDestroyed: false,
   };
@@ -22,6 +23,10 @@ export function createBattleBases() {
 }
 
 export function applyBaseDamage(base, damage) {
-  base.currentHp = Math.max(0, base.currentHp - damage);
-  base.isDestroyed = base.currentHp <= 0;
+  const currentHp = base.currentHp ?? base.hp ?? base.maxHp;
+  const nextHp = Math.max(0, currentHp - damage);
+
+  base.hp = nextHp;
+  base.currentHp = nextHp;
+  base.isDestroyed = nextHp <= 0;
 }

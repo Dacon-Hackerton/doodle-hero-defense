@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>낙서 용사 디펜스</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./src/css/style.css" />
 </head>
 <body>
@@ -100,6 +101,12 @@
       </header>
 
       <canvas id="battleCanvas" width="960" height="540"></canvas>
+
+      <div class="battle-controls">
+        <button id="summonAllyButton" type="button" class="primary-btn">Summon Ally</button>
+        <button id="restartBattleButton" type="button">Restart Battle</button>
+        <p id="battleStatusText" aria-live="polite">READY | Cost 0 / 1000</p>
+      </div>
     </section>
   </div>
 
