@@ -192,9 +192,17 @@ input {
   outline: 3px solid #2563eb;
 }
 
+.judge-result-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .result-card {
   width: 360px;
-  margin: 20px auto;
+  margin: 20px 0;
   padding: 16px;
   background-color: #ffffff;
   border: 1px solid #d1d5db;
@@ -202,7 +210,12 @@ input {
   color: #111827;
 }
 
-#previewImage {
+.result-card-title {
+  margin-top: 0;
+}
+
+#currentPreviewImage,
+#selectedPreviewImage {
   width: 200px;
   height: 200px;
   background-color: white;
@@ -341,6 +354,11 @@ input {
   .result-card,
   .slot-section {
     width: min(100%, 400px);
+  }
+
+  .judge-result-layout {
+    flex-direction: column;
+    align-items: center;
   }
 
   .character-slots {

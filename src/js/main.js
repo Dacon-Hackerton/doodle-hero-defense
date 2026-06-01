@@ -2,10 +2,12 @@ import { BattleManager } from "./battle/BattleManager.js";
 import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
 import { StatCalculator } from "./drawing/StatCalculator.js";
+import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const drawingCanvas = createDrawingCanvas();
-  const judgeManager = createJudgeManager();
+  const currentJudgeManager = createCurrentJudgeManager();
+  const selectedJudgeManager = createSelectedJudgeManager();
 
   const characterNameInput = document.getElementById("characterNameInput");
   const startButton = document.getElementById("startButton");
@@ -28,24 +30,30 @@ document.addEventListener("DOMContentLoaded", () => {
   let characterSlots = [null, null, null];
   let battleManager = null;
 
-  showScreen("startScreen");
+  const hasSavedSlotData = await loadSavedRunData();
+
+  if (hasSavedSlotData) {
+    showScreen("judgeScreen");
+  } else {
+    showScreen("startScreen");
+  }
 
   bindClick(startButton, "startButton", () => {
     showScreen("drawScreen");
   });
 
   bindClick(judgeButton, "judgeButton", () => {
-    if (!drawingCanvas || !judgeManager) {
+    if (!drawingCanvas || !currentJudgeManager) {
       return;
     }
 
     currentCharacter = createCharacterFromCurrentDrawing({
       drawingCanvas,
-      judgeManager,
+      judgeManager: currentJudgeManager,
       characterNameInput,
     });
 
-    judgeManager.renderResult(currentCharacter);
+    currentJudgeManager.renderResult(currentCharacter);
     showScreen("judgeScreen");
   });
 
@@ -75,7 +83,9 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedCharacter = currentCharacter;
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
-    judgeManager.renderResult(selectedCharacter);
+    selectedJudgeManager.renderResult(selectedCharacter);
+
+    saveCurrentRunData();
   });
 
   slotButtons.forEach((button) => {
@@ -88,19 +98,26 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!character) {
         selectedCharacter = null;
         renderCharacterSlots(characterSlots, selectedSlotIndex);
+        saveCurrentRunData();
         return;
       }
 
       selectedCharacter = character;
+
       renderCharacterSlots(characterSlots, selectedSlotIndex);
-      judgeManager.renderResult(selectedCharacter);
+      selectedJudgeManager.renderResult(selectedCharacter);
+
+      saveCurrentRunData();
     });
   });
 
   bindClick(battleStartButton, "battleStartButton", () => {
-    const battleCharacter = selectedCharacter ?? currentCharacter;
+    if (!areAllSlotsFilled(characterSlots)) {
+      console.warn("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
+      return;
+    }
 
-    if (!battleCharacter) {
+    if (!selectedCharacter) {
       console.warn("전투에 사용할 캐릭터 슬롯을 선택하세요.");
       return;
     }
@@ -112,27 +129,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     battleManager.setStatusElement(battleStatusText);
-    battleManager.startBattle([battleCharacter]);
+    battleManager.startBattle([selectedCharacter]);
   });
 
   bindClick(summonAllyButton, "summonAllyButton", () => {
-    const battleCharacter = selectedCharacter ?? currentCharacter;
-
-    if (!battleManager || !battleCharacter) {
+    if (!battleManager || !selectedCharacter) {
       return;
     }
 
-    battleManager.summonAlly(battleCharacter);
+    battleManager.summonAlly(selectedCharacter);
   });
 
   bindClick(restartBattleButton, "restartBattleButton", () => {
-    const battleCharacter = selectedCharacter ?? currentCharacter;
-
-    if (!battleManager || !battleCharacter) {
+    if (!battleManager || !selectedCharacter) {
       return;
     }
 
-    battleManager.startBattle([battleCharacter]);
+    battleManager.startBattle([selectedCharacter]);
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {
@@ -144,6 +157,63 @@ document.addEventListener("DOMContentLoaded", () => {
     battleManager?.stop();
     showScreen("drawScreen");
   });
+
+  async function loadSavedRunData() {
+    try {
+      const savedRunData = await PlayerRunStorage.loadRunData();
+
+      if (!savedRunData) {
+        console.log("저장된 슬롯 데이터가 없습니다.");
+        return false;
+      }
+
+      characterSlots = savedRunData.characterSlots ?? [null, null, null];
+      selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
+
+      const hasSlotCharacter = characterSlots.some(
+        (character) => character !== null,
+      );
+
+      if (!hasSlotCharacter) {
+        console.log("저장된 슬롯 캐릭터가 없습니다.");
+        return false;
+      }
+
+      if (selectedSlotIndex === null || !characterSlots[selectedSlotIndex]) {
+        selectedSlotIndex = characterSlots.findIndex(
+          (character) => character !== null,
+        );
+      }
+
+      selectedCharacter = characterSlots[selectedSlotIndex] ?? null;
+
+      renderCharacterSlots(characterSlots, selectedSlotIndex);
+
+      if (selectedCharacter && selectedJudgeManager) {
+        selectedJudgeManager.renderResult(selectedCharacter);
+      }
+
+      console.log("저장된 슬롯 데이터 불러오기 완료");
+      return true;
+    } catch (error) {
+      console.warn("저장된 슬롯 데이터를 불러오지 못했습니다.", error);
+      return false;
+    }
+  }
+
+  async function saveCurrentRunData() {
+    try {
+      await PlayerRunStorage.saveRunData({
+        characterSlots,
+        selectedSlotIndex,
+        savedAt: Date.now(),
+      });
+
+      console.log("슬롯 데이터 저장 완료");
+    } catch (error) {
+      console.warn("슬롯 데이터를 저장하지 못했습니다.", error);
+    }
+  }
 });
 
 function showScreen(screenId) {
@@ -203,31 +273,36 @@ function createDrawingCanvas() {
   return drawingCanvas;
 }
 
-function createJudgeManager() {
-  const requiredIds = [
-    "previewImage",
-    "resultName",
-    "resultGrade",
-    "resultPower",
-    "resultComment",
-    "statAttack",
-    "statHp",
-    "statSpeed",
-    "statAttackSpeed",
-    "statRange",
-    "statCost",
-  ];
+function createCurrentJudgeManager() {
+  return new JudgeManager({
+    previewImage: document.getElementById("currentPreviewImage"),
+    resultName: document.getElementById("currentResultName"),
+    resultGrade: document.getElementById("currentResultGrade"),
+    resultPower: document.getElementById("currentResultPower"),
+    resultComment: document.getElementById("currentResultComment"),
+    statAttack: document.getElementById("currentStatAttack"),
+    statHp: document.getElementById("currentStatHp"),
+    statSpeed: document.getElementById("currentStatSpeed"),
+    statAttackSpeed: document.getElementById("currentStatAttackSpeed"),
+    statRange: document.getElementById("currentStatRange"),
+    statCost: document.getElementById("currentStatCost"),
+  });
+}
 
-  const elements = Object.fromEntries(
-    requiredIds.map((id) => [id, document.getElementById(id)]),
-  );
-
-  if (Object.values(elements).some((element) => !element)) {
-    console.warn("Judge result controls are incomplete");
-    return null;
-  }
-
-  return new JudgeManager(elements);
+function createSelectedJudgeManager() {
+  return new JudgeManager({
+    previewImage: document.getElementById("selectedPreviewImage"),
+    resultName: document.getElementById("selectedResultName"),
+    resultGrade: document.getElementById("selectedResultGrade"),
+    resultPower: document.getElementById("selectedResultPower"),
+    resultComment: document.getElementById("selectedResultComment"),
+    statAttack: document.getElementById("selectedStatAttack"),
+    statHp: document.getElementById("selectedStatHp"),
+    statSpeed: document.getElementById("selectedStatSpeed"),
+    statAttackSpeed: document.getElementById("selectedStatAttackSpeed"),
+    statRange: document.getElementById("selectedStatRange"),
+    statCost: document.getElementById("selectedStatCost"),
+  });
 }
 
 function createCharacterFromCurrentDrawing({

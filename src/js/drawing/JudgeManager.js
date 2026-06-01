@@ -60,6 +60,10 @@ export class JudgeManager {
   }
 
   renderResult(character) {
+    if (!character) {
+      return;
+    }
+
     this.previewImage.src = character.imageData;
     this.resultName.textContent = character.name;
     this.resultGrade.textContent = `등급: ${character.grade}`;
@@ -67,11 +71,11 @@ export class JudgeManager {
     this.resultComment.textContent =
       "AI 감정 결과: 낙서의 기세가 좋아 전투 투입이 가능합니다.";
 
-    this.statAttack.textContent = `공격력: ${character.stats.attack}`;
-    this.statHp.textContent = `체력: ${character.stats.hp}`;
-    this.statSpeed.textContent = `이동 속도: ${character.stats.speed}`;
-    this.statAttackSpeed.textContent = `공격 속도: ${character.stats.attackSpeed}`;
-    this.statRange.textContent = `사거리: ${character.stats.range}`;
-    this.statCost.textContent = `소환 비용: ${character.stats.cost}`;
+    this.statAttack.textContent = character.stats.attack;
+    this.statHp.textContent = character.stats.hp;
+    this.statSpeed.textContent = character.stats.speed;
+    this.statAttackSpeed.textContent = character.stats.attackSpeed;
+    this.statRange.textContent = character.stats.range;
+    this.statCost.textContent = character.stats.cost;
   }
 }
