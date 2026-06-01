@@ -72,38 +72,80 @@
         <h1>감정 결과</h1>
       </header>
 
-      <div class="result-card">
-        <img id="previewImage" alt="캐릭터 미리보기" />
+      <div class="judge-result-layout">
+        <div class="result-card">
+          <h3 class="result-card-title">방금 감정한 캐릭터</h3>
 
-        <h3 id="resultName">이름</h3>
-        <p id="resultGrade">등급: -</p>
-        <p id="resultPower">전투력: -</p>
-        <p id="resultComment">AI 감정 코멘트</p>
+          <img id="currentPreviewImage" alt="방금 감정한 캐릭터 미리보기" />
 
-        <div class="stat-box">
-          <div class="stat-row">
-            <span>공격력</span>
-            <strong id="statAttack">0</strong>
+          <h3 id="currentResultName">방금 감정한 캐릭터 없음</h3>
+          <p id="currentResultGrade">등급: -</p>
+          <p id="currentResultPower">전투력: -</p>
+          <p id="currentResultComment">그림을 그리고 감정하면 여기에 표시됩니다.</p>
+
+          <div class="stat-box">
+            <div class="stat-row">
+              <span>공격력</span>
+              <strong id="currentStatAttack">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>체력</span>
+              <strong id="currentStatHp">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>이동 속도</span>
+              <strong id="currentStatSpeed">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>공격 속도</span>
+              <strong id="currentStatAttackSpeed">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>사거리</span>
+              <strong id="currentStatRange">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>소환 비용</span>
+              <strong id="currentStatCost">0</strong>
+            </div>
           </div>
-          <div class="stat-row">
-            <span>체력</span>
-            <strong id="statHp">0</strong>
-          </div>
-          <div class="stat-row">
-            <span>이동 속도</span>
-            <strong id="statSpeed">0</strong>
-          </div>
-          <div class="stat-row">
-            <span>공격 속도</span>
-            <strong id="statAttackSpeed">0</strong>
-          </div>
-          <div class="stat-row">
-            <span>사거리</span>
-            <strong id="statRange">0</strong>
-          </div>
-          <div class="stat-row">
-            <span>소환 비용</span>
-            <strong id="statCost">0</strong>
+        </div>
+
+        <div class="result-card">
+          <h3 class="result-card-title">선택한 슬롯 캐릭터</h3>
+
+          <img id="selectedPreviewImage" alt="선택한 슬롯 캐릭터 미리보기" />
+
+          <h3 id="selectedResultName">선택된 슬롯 없음</h3>
+          <p id="selectedResultGrade">등급: -</p>
+          <p id="selectedResultPower">전투력: -</p>
+          <p id="selectedResultComment">슬롯을 선택하면 정보가 표시됩니다.</p>
+
+          <div class="stat-box">
+            <div class="stat-row">
+              <span>공격력</span>
+              <strong id="selectedStatAttack">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>체력</span>
+              <strong id="selectedStatHp">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>이동 속도</span>
+              <strong id="selectedStatSpeed">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>공격 속도</span>
+              <strong id="selectedStatAttackSpeed">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>사거리</span>
+              <strong id="selectedStatRange">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>소환 비용</span>
+              <strong id="selectedStatCost">0</strong>
+            </div>
           </div>
         </div>
       </div>
