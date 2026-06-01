@@ -19,15 +19,20 @@ export class BattleManager {
     this.renderer = new BattleRenderer(this.canvas);
     this.battleState = BATTLE_STATE.READY;
     this.bases = createBattleBases();
+    this.allyBase = this.getBase(TEAM.ALLY);
+    this.enemyBase = this.getBase(TEAM.ENEMY);
     this.allyCharacters = [];
     this.allyUnits = [];
     this.enemyUnits = [];
     this.currentCost = BATTLE_CONFIG.startCost;
+    this.maxCost = BATTLE_CONFIG.maxCost;
+    this.costRegenPerSecond = BATTLE_CONFIG.costRegenPerSecond;
     this.enemySpawnTimer = BATTLE_CONFIG.enemySpawnInterval;
+    this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.stage = 1;
     this.resultMessage = "";
     this.noticeMessage = "";
-    this.lastFrameTime = 0;
+    this.lastTime = 0;
     this.animationFrameId = null;
     this.statusElement = null;
 
@@ -48,21 +53,32 @@ export class BattleManager {
   }
 
   startBattle(allyCharacters = []) {
-    this.stop();
+    this.stopBattle();
+    this.resetBattle(allyCharacters);
 
-    this.bases = createBattleBases();
+    this.battleState = BATTLE_STATE.PLAYING;
+    this.lastTime = performance.now();
+    this.noticeMessage = "Battle started";
+    this.render();
+    this.animationFrameId = requestAnimationFrame(this.loop);
+  }
+
+  resetBattle(allyCharacters = []) {
     this.allyCharacters = this.normalizeAllyCharacters(allyCharacters);
+    this.bases = createBattleBases();
+    this.allyBase = this.getBase(TEAM.ALLY);
+    this.enemyBase = this.getBase(TEAM.ENEMY);
     this.allyUnits = [];
     this.enemyUnits = [];
     this.currentCost = BATTLE_CONFIG.startCost;
-    this.enemySpawnTimer = BATTLE_CONFIG.enemySpawnInterval;
+    this.maxCost = BATTLE_CONFIG.maxCost;
+    this.costRegenPerSecond = BATTLE_CONFIG.costRegenPerSecond;
+    this.enemySpawnTimer = 0;
+    this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.resultMessage = "";
-    this.noticeMessage = "Battle started";
-    this.lastFrameTime = 0;
-    this.battleState = BATTLE_STATE.PLAYING;
-
-    this.render();
-    this.animationFrameId = requestAnimationFrame(this.loop);
+    this.noticeMessage = "";
+    this.lastTime = 0;
+    this.battleState = BATTLE_STATE.READY;
   }
 
   normalizeAllyCharacters(allyCharacters) {
@@ -111,6 +127,13 @@ export class BattleManager {
   }
 
   spawnEnemy() {
+    if (
+      this.battleState !== BATTLE_STATE.PLAYING ||
+      this.enemyUnits.length >= BATTLE_CONFIG.maxEnemyUnits
+    ) {
+      return;
+    }
+
     const enemyCharacter = this.createDefaultEnemyCharacter(this.stage);
 
     this.enemyUnits.push(
@@ -124,17 +147,17 @@ export class BattleManager {
   }
 
   loop(timestamp) {
-    if (!this.lastFrameTime) {
-      this.lastFrameTime = timestamp;
-    }
-
-    const deltaTime = Math.min((timestamp - this.lastFrameTime) / 1000, 0.1);
-    this.lastFrameTime = timestamp;
-
     if (this.battleState !== BATTLE_STATE.PLAYING) {
       this.animationFrameId = null;
       return;
     }
+
+    if (!this.lastTime) {
+      this.lastTime = timestamp;
+    }
+
+    const deltaTime = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+    this.lastTime = timestamp;
 
     this.update(deltaTime);
     this.render();
@@ -147,28 +170,56 @@ export class BattleManager {
   }
 
   update(deltaTime) {
-    this.regenerateCost(deltaTime);
-    this.updateEnemySpawning(deltaTime);
+    if (this.battleState !== BATTLE_STATE.PLAYING) {
+      return;
+    }
+
+    this.updateCost(deltaTime);
+    this.updateEnemySpawn(deltaTime);
     this.updateUnits(deltaTime);
-    this.cleanupDeadUnits();
+    this.updateCombat(deltaTime);
+    this.removeDeadUnits();
     this.checkWinLose();
     this.updateStatusText();
   }
 
-  regenerateCost(deltaTime) {
+  updateCost(deltaTime) {
     this.currentCost = Math.min(
-      BATTLE_CONFIG.maxCost,
-      this.currentCost + BATTLE_CONFIG.costRegenPerSecond * deltaTime,
+      this.maxCost,
+      this.currentCost + this.costRegenPerSecond * deltaTime,
     );
   }
 
-  updateEnemySpawning(deltaTime) {
-    this.enemySpawnTimer -= deltaTime;
+  regenerateCost(deltaTime) {
+    this.updateCost(deltaTime);
+  }
 
-    while (this.enemySpawnTimer <= 0) {
-      this.spawnEnemy();
-      this.enemySpawnTimer += BATTLE_CONFIG.enemySpawnInterval;
+  updateEnemySpawn(deltaTime) {
+    if (this.battleState !== BATTLE_STATE.PLAYING) {
+      return;
     }
+
+    this.enemySpawnTimer += deltaTime;
+
+    if (this.enemyUnits.length >= BATTLE_CONFIG.maxEnemyUnits) {
+      this.enemySpawnTimer = Math.min(
+        this.enemySpawnTimer,
+        this.enemySpawnInterval,
+      );
+      return;
+    }
+
+    while (
+      this.enemySpawnTimer >= this.enemySpawnInterval &&
+      this.enemyUnits.length < BATTLE_CONFIG.maxEnemyUnits
+    ) {
+      this.spawnEnemy();
+      this.enemySpawnTimer -= this.enemySpawnInterval;
+    }
+  }
+
+  updateEnemySpawning(deltaTime) {
+    this.updateEnemySpawn(deltaTime);
   }
 
   updateUnits(deltaTime) {
@@ -182,6 +233,47 @@ export class BattleManager {
       }
 
       unit.attackCooldown = Math.max(0, unit.attackCooldown - deltaTime);
+
+      const targetUnit = this.findClosestUnitTargetInRange(unit);
+
+      if (targetUnit) {
+        unit.state = UNIT_STATE.ATTACK;
+        unit.targetUnitId = targetUnit.unitId;
+        unit.target = {
+          type: "unit",
+          id: targetUnit.unitId,
+        };
+        return;
+      }
+
+      const targetBase = this.findEnemyBaseTargetInRange(unit);
+
+      if (targetBase) {
+        unit.state = UNIT_STATE.ATTACK;
+        unit.targetUnitId = null;
+        unit.target = {
+          type: "base",
+          team: targetBase.team,
+        };
+        return;
+      }
+
+      unit.state = UNIT_STATE.MOVE;
+      unit.targetUnitId = null;
+      unit.target = null;
+      updateUnit(unit, deltaTime);
+    });
+  }
+
+  updateCombat() {
+    this.getUnits().forEach((unit) => {
+      if (this.battleState !== BATTLE_STATE.PLAYING) {
+        return;
+      }
+
+      if (unit.isDead || unit.state === UNIT_STATE.DEAD) {
+        return;
+      }
 
       const targetUnit = this.findClosestUnitTargetInRange(unit);
 
@@ -200,13 +292,7 @@ export class BattleManager {
           type: "base",
           base: targetBase,
         });
-        return;
       }
-
-      unit.state = UNIT_STATE.MOVE;
-      unit.targetUnitId = null;
-      unit.target = null;
-      updateUnit(unit, deltaTime);
     });
   }
 
@@ -311,6 +397,10 @@ export class BattleManager {
     });
   }
 
+  removeDeadUnits() {
+    this.cleanupDeadUnits();
+  }
+
   checkWinLose() {
     const allyBase = this.getBase(TEAM.ALLY);
     const enemyBase = this.getBase(TEAM.ENEMY);
@@ -329,6 +419,10 @@ export class BattleManager {
     this.battleState = nextState;
     this.resultMessage = resultMessage;
     this.noticeMessage = resultMessage;
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
     this.updateStatusText();
   }
 
@@ -385,7 +479,7 @@ export class BattleManager {
       allyUnits: this.allyUnits,
       enemyUnits: this.enemyUnits,
       currentCost: this.currentCost,
-      maxCost: BATTLE_CONFIG.maxCost,
+      maxCost: this.maxCost,
       primaryAllyCost: this.getPrimaryAllyCost(),
       noticeMessage: this.noticeMessage,
       resultMessage: this.resultMessage,
@@ -403,7 +497,7 @@ export class BattleManager {
     }
 
     const stateText = this.battleState.toUpperCase();
-    const costText = `${Math.floor(this.currentCost)} / ${BATTLE_CONFIG.maxCost}`;
+    const costText = `${Math.floor(this.currentCost)} / ${this.maxCost}`;
     const unitText = `Ally ${this.allyUnits.length} | Enemy ${this.enemyUnits.length}`;
     const noticeText = this.noticeMessage ? ` | ${this.noticeMessage}` : "";
 
@@ -411,12 +505,17 @@ export class BattleManager {
   }
 
   stop() {
+    this.stopBattle();
+  }
+
+  stopBattle() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
 
     this.battleState = BATTLE_STATE.READY;
+    this.lastTime = 0;
     this.updateStatusText();
   }
 

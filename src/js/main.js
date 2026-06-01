@@ -98,12 +98,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick(battleStartButton, "battleStartButton", () => {
-    if (!areAllSlotsFilled(characterSlots)) {
-      console.warn("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
-      return;
-    }
+    const battleCharacter = selectedCharacter ?? currentCharacter;
 
-    if (!selectedCharacter) {
+    if (!battleCharacter) {
       console.warn("전투에 사용할 캐릭터 슬롯을 선택하세요.");
       return;
     }
@@ -115,23 +112,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     battleManager.setStatusElement(battleStatusText);
-    battleManager.startBattle([selectedCharacter]);
+    battleManager.startBattle([battleCharacter]);
   });
 
   bindClick(summonAllyButton, "summonAllyButton", () => {
-    if (!battleManager || !selectedCharacter) {
+    const battleCharacter = selectedCharacter ?? currentCharacter;
+
+    if (!battleManager || !battleCharacter) {
       return;
     }
 
-    battleManager.summonAlly(selectedCharacter);
+    battleManager.summonAlly(battleCharacter);
   });
 
   bindClick(restartBattleButton, "restartBattleButton", () => {
-    if (!battleManager || !selectedCharacter) {
+    const battleCharacter = selectedCharacter ?? currentCharacter;
+
+    if (!battleManager || !battleCharacter) {
       return;
     }
 
-    battleManager.startBattle([selectedCharacter]);
+    battleManager.startBattle([battleCharacter]);
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {
