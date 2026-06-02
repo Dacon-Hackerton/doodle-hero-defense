@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const startButton = document.getElementById("startButton");
   const judgeButton = document.getElementById("judgeButton");
   const battleStartButton = document.getElementById("battleStartButton");
-  const summonAllyButton = document.getElementById("summonAllyButton");
   const restartBattleButton = document.getElementById("restartBattleButton");
   const battleStatusText = document.getElementById("battleStatusText");
   const backDrawButton = document.getElementById("backDrawButton");
@@ -148,21 +147,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     startCardCooldownLoop();
   });
 
-  bindClick(summonAllyButton, "summonAllyButton", () => {
-    if (!battleManager || !selectedCharacter) {
-      return;
-    }
-
-    const selectedBattleCard = getBattleCardForCharacter(selectedCharacter);
-
-    if (selectedBattleCard) {
-      handleBattleCardClick(selectedCharacter, selectedBattleCard);
-      return;
-    }
-
-    battleManager.summonAlly(selectedCharacter);
-  });
-
   bindClick(restartBattleButton, "restartBattleButton", () => {
     if (!battleManager || !areAllSlotsFilled(characterSlots)) {
       return;
@@ -282,20 +266,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       cardCooldowns,
     });
     cardCooldownFrameId = requestAnimationFrame(updateCardCooldowns);
-  }
-
-  function getBattleCardForCharacter(character) {
-    const slotIndex = characterSlots.findIndex(
-      (slotCharacter) => slotCharacter?.id === character?.id,
-    );
-
-    if (slotIndex === -1) {
-      return null;
-    }
-
-    return document.querySelector(
-      `.battle-slot-card[data-battle-slot-index="${slotIndex}"]`,
-    );
   }
 
   async function loadSavedRunData() {
