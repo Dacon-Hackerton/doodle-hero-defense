@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const startButton = document.getElementById("startButton");
   const judgeButton = document.getElementById("judgeButton");
   const battleStartButton = document.getElementById("battleStartButton");
-  const summonAllyButton = document.getElementById("summonAllyButton");
   const restartBattleButton = document.getElementById("restartBattleButton");
   const battleStatusText = document.getElementById("battleStatusText");
   const backDrawButton = document.getElementById("backDrawButton");
@@ -146,21 +145,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       cardCooldowns,
     });
     startCardCooldownLoop();
-  });
-
-  bindClick(summonAllyButton, "summonAllyButton", () => {
-    if (!battleManager || !selectedCharacter) {
-      return;
-    }
-
-    const selectedBattleCard = getBattleCardForCharacter(selectedCharacter);
-
-    if (selectedBattleCard) {
-      handleBattleCardClick(selectedCharacter, selectedBattleCard);
-      return;
-    }
-
-    battleManager.summonAlly(selectedCharacter);
   });
 
   bindClick(restartBattleButton, "restartBattleButton", () => {
