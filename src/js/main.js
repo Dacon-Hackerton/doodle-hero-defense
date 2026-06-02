@@ -23,6 +23,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const saveSlotButton = document.getElementById("saveSlotButton");
   const slotButtons = document.querySelectorAll(".character-slot");
+  const battleSlotButtons = document.querySelectorAll(".battle-slot-card");
+
+  battleSlotButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const slotIndex = Number(button.dataset.battleSlotIndex);
+      const character = characterSlots[slotIndex];
+
+      if (!battleManager || !character) {
+      return;
+      }
+
+      battleManager.summonAlly(character);
+    });
+  });
 
   let currentCharacter = null;
   let selectedCharacter = null;
@@ -59,7 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(saveSlotButton, "saveSlotButton", () => {
     if (!currentCharacter) {
-      console.warn("등록할 캐릭터가 없습니다.");
+      alert("먼저 캐릭터를 그리고 감정해주세요.");
       return;
     }
 
@@ -71,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       targetIndex = emptySlotIndex;
     } else {
       if (selectedSlotIndex === null) {
-        console.warn("교체할 슬롯을 먼저 선택하세요.");
+        alert("슬롯이 모두 찼습니다. 교체할 슬롯을 먼저 선택해주세요.");
         return;
       }
 
@@ -113,12 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(battleStartButton, "battleStartButton", () => {
     if (!areAllSlotsFilled(characterSlots)) {
-      console.warn("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
-      return;
-    }
-
-    if (!selectedCharacter) {
-      console.warn("전투에 사용할 캐릭터 슬롯을 선택하세요.");
+      alert("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
       return;
     }
 
@@ -128,8 +137,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       battleManager = new BattleManager("battleCanvas");
     }
 
+    renderBattleSlotCards(characterSlots);
+
     battleManager.setStatusElement(battleStatusText);
-    battleManager.startBattle([selectedCharacter]);
+    battleManager.startBattle(characterSlots);
   });
 
   bindClick(summonAllyButton, "summonAllyButton", () => {
@@ -141,11 +152,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   bindClick(restartBattleButton, "restartBattleButton", () => {
-    if (!battleManager || !selectedCharacter) {
+    if (!battleManager || !areAllSlotsFilled(characterSlots)) {
       return;
     }
 
-    battleManager.startBattle([selectedCharacter]);
+    battleManager.startBattle(characterSlots);
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {
@@ -196,7 +207,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("저장된 슬롯 데이터 불러오기 완료");
       return true;
     } catch (error) {
-      console.warn("저장된 슬롯 데이터를 불러오지 못했습니다.", error);
+      alert("먼저 캐릭터를 그리고 감정해주세요.");
       return false;
     }
   }
@@ -321,6 +332,42 @@ function createCharacterFromCurrentDrawing({
     imageData: drawingCanvas.toImageData(),
     stats,
     grade,
+  });
+}
+
+function renderBattleSlotCards(characterSlots) {
+  const battleSlotButtons = document.querySelectorAll(".battle-slot-card");
+
+  battleSlotButtons.forEach((button, index) => {
+    const character = characterSlots[index];
+
+    button.classList.remove(
+      "grade-SS",
+      "grade-S",
+      "grade-A",
+      "grade-B",
+      "grade-C",
+      "cooldown",
+    );
+
+    if (!character) {
+      button.innerHTML = `
+        <div class="battle-slot-name">빈 슬롯</div>
+        <div class="battle-slot-cooldown"></div>
+      `;
+      return;
+    }
+
+    const grade = character.grade ?? "C";
+    button.classList.add(`grade-${grade}`);
+
+    button.innerHTML = `
+      <img class="battle-slot-image" src="${character.imageData}" alt="${character.name}" />
+      <div class="battle-slot-name">${character.name}</div>
+      <div class="battle-slot-power">전투력 ${character.stats.power}</div>
+      <div class="battle-slot-cost">Cost ${character.stats.cost}</div>
+      <div class="battle-slot-cooldown"></div>
+    `;
   });
 }
 
