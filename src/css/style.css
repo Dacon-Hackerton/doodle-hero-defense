@@ -416,6 +416,8 @@ input {
   gap: 6px;
 
   text-align: center;
+  cursor: pointer;
+  user-select: none;
 }
 
 .battle-slot-card:hover {
@@ -429,6 +431,10 @@ input {
 
 .battle-slot-card:disabled:hover {
   background-color: #ffffff;
+}
+
+.battle-slot-card > * {
+  pointer-events: none;
 }
 
 .battle-slot-image {
