@@ -268,6 +268,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     cardCooldownFrameId = requestAnimationFrame(updateCardCooldowns);
   }
 
+  function getBattleCardForCharacter(character) {
+    const slotIndex = characterSlots.findIndex(
+      (slotCharacter) => slotCharacter?.id === character?.id,
+    );
+
+    if (slotIndex === -1) {
+      return null;
+    }
+
+    return document.querySelector(
+      `.battle-slot-card[data-battle-slot-index="${slotIndex}"]`,
+    );
+  }
+
   async function loadSavedRunData() {
     try {
       const savedRunData = await PlayerRunStorage.loadRunData();
