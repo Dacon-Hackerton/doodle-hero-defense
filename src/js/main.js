@@ -4,6 +4,8 @@ import { JudgeManager } from "./drawing/JudgeManager.js";
 import { StatCalculator } from "./drawing/StatCalculator.js";
 import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
+const DEFAULT_CARD_COOLDOWN = 3.0;
+
 document.addEventListener("DOMContentLoaded", async () => {
   const drawingCanvas = createDrawingCanvas();
   const currentJudgeManager = createCurrentJudgeManager();
@@ -13,7 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const startButton = document.getElementById("startButton");
   const judgeButton = document.getElementById("judgeButton");
   const battleStartButton = document.getElementById("battleStartButton");
-  const summonAllyButton = document.getElementById("summonAllyButton");
   const restartBattleButton = document.getElementById("restartBattleButton");
   const battleStatusText = document.getElementById("battleStatusText");
   const backDrawButton = document.getElementById("backDrawButton");
@@ -30,11 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const slotIndex = Number(button.dataset.battleSlotIndex);
       const character = characterSlots[slotIndex];
 
-      if (!battleManager || !character) {
-      return;
-      }
-
-      battleManager.summonAlly(character);
+      handleBattleCardClick(character, button);
     });
   });
 
@@ -43,6 +40,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   let selectedSlotIndex = null;
   let characterSlots = [null, null, null];
   let battleManager = null;
+  const cardCooldowns = new Map();
+  let cardCooldownFrameId = null;
+  let lastCardCooldownTime = 0;
 
   const hasSavedSlotData = await loadSavedRunData();
 
@@ -137,18 +137,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       battleManager = new BattleManager("battleCanvas");
     }
 
-    renderBattleSlotCards(characterSlots);
-
     battleManager.setStatusElement(battleStatusText);
     battleManager.startBattle(characterSlots);
-  });
-
-  bindClick(summonAllyButton, "summonAllyButton", () => {
-    if (!battleManager || !selectedCharacter) {
-      return;
-    }
-
-    battleManager.summonAlly(selectedCharacter);
+    resetCardCooldowns(characterSlots);
+    renderBattleSlotCards(characterSlots, {
+      battleManager,
+      cardCooldowns,
+    });
+    startCardCooldownLoop();
   });
 
   bindClick(restartBattleButton, "restartBattleButton", () => {
@@ -157,6 +153,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     battleManager.startBattle(characterSlots);
+    resetCardCooldowns(characterSlots);
+    renderBattleSlotCards(characterSlots, {
+      battleManager,
+      cardCooldowns,
+    });
+    startCardCooldownLoop();
   });
 
   bindClick(backDrawButton, "backDrawButton", () => {
@@ -166,8 +168,105 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(backDrawFromBattleButton, "backDrawFromBattleButton", () => {
     battleManager?.stop();
+    stopCardCooldownLoop();
     showScreen("drawScreen");
   });
+
+  function handleBattleCardClick(character, cardElement) {
+    if (!battleManager || !character || !cardElement) {
+      return;
+    }
+
+    if (isCardCoolingDown(character.id)) {
+      return;
+    }
+
+    const success = battleManager.summonAlly(character);
+
+    if (!success) {
+      renderBattleSlotCards(characterSlots, {
+        battleManager,
+        cardCooldowns,
+      });
+      return;
+    }
+
+    startCardCooldown(character.id);
+    renderBattleSlotCards(characterSlots, {
+      battleManager,
+      cardCooldowns,
+    });
+  }
+
+  function resetCardCooldowns(characters) {
+    cardCooldowns.clear();
+
+    characters.filter(Boolean).forEach((character) => {
+      cardCooldowns.set(character.id, {
+        remaining: 0,
+        duration: getCardCooldownDuration(character),
+      });
+    });
+  }
+
+  function startCardCooldown(characterId) {
+    const cooldown = cardCooldowns.get(characterId);
+
+    if (!cooldown) {
+      return;
+    }
+
+    cooldown.remaining = cooldown.duration;
+    cardCooldowns.set(characterId, cooldown);
+  }
+
+  function isCardCoolingDown(characterId) {
+    return (cardCooldowns.get(characterId)?.remaining ?? 0) > 0;
+  }
+
+  function getCardCooldownDuration(character) {
+    const cooldown = Number(character?.cooldown);
+
+    return Number.isFinite(cooldown) && cooldown > 0
+      ? cooldown
+      : DEFAULT_CARD_COOLDOWN;
+  }
+
+  function startCardCooldownLoop() {
+    stopCardCooldownLoop();
+    lastCardCooldownTime = performance.now();
+    cardCooldownFrameId = requestAnimationFrame(updateCardCooldowns);
+  }
+
+  function stopCardCooldownLoop() {
+    if (!cardCooldownFrameId) {
+      return;
+    }
+
+    cancelAnimationFrame(cardCooldownFrameId);
+    cardCooldownFrameId = null;
+    lastCardCooldownTime = 0;
+  }
+
+  function updateCardCooldowns(timestamp) {
+    const deltaTime = Math.min((timestamp - lastCardCooldownTime) / 1000, 0.1);
+    lastCardCooldownTime = timestamp;
+
+    cardCooldowns.forEach((cooldown, characterId) => {
+      if (cooldown.remaining <= 0) {
+        return;
+      }
+
+      cooldown.remaining = Math.max(0, cooldown.remaining - deltaTime);
+      cardCooldowns.set(characterId, cooldown);
+    });
+
+    renderBattleSlotCards(characterSlots, {
+      battleManager,
+      cardCooldowns,
+    });
+    cardCooldownFrameId = requestAnimationFrame(updateCardCooldowns);
+  }
 
   async function loadSavedRunData() {
     try {
@@ -335,8 +434,9 @@ function createCharacterFromCurrentDrawing({
   });
 }
 
-function renderBattleSlotCards(characterSlots) {
+function renderBattleSlotCards(characterSlots, { battleManager, cardCooldowns } = {}) {
   const battleSlotButtons = document.querySelectorAll(".battle-slot-card");
+  const currentCost = battleManager?.currentCost ?? 0;
 
   battleSlotButtons.forEach((button, index) => {
     const character = characterSlots[index];
@@ -348,9 +448,12 @@ function renderBattleSlotCards(characterSlots) {
       "grade-B",
       "grade-C",
       "cooldown",
+      "cost-blocked",
     );
+    button.disabled = false;
 
     if (!character) {
+      button.disabled = true;
       button.innerHTML = `
         <div class="battle-slot-name">빈 슬롯</div>
         <div class="battle-slot-cooldown"></div>
@@ -359,14 +462,30 @@ function renderBattleSlotCards(characterSlots) {
     }
 
     const grade = character.grade ?? "C";
+    const cost = Number(character.stats?.cost) || 0;
+    const cooldown = cardCooldowns?.get(character.id);
+    const remaining = cooldown?.remaining ?? 0;
+    const isCoolingDown = remaining > 0;
+    const isCostBlocked = currentCost < cost;
+
     button.classList.add(`grade-${grade}`);
+    button.disabled = isCoolingDown;
+
+    if (isCoolingDown) {
+      button.classList.add("cooldown");
+    }
+
+    if (isCostBlocked) {
+      button.classList.add("cost-blocked");
+    }
 
     button.innerHTML = `
       <img class="battle-slot-image" src="${character.imageData}" alt="${character.name}" />
       <div class="battle-slot-name">${character.name}</div>
+      <div class="battle-slot-grade">Grade ${grade}</div>
       <div class="battle-slot-power">전투력 ${character.stats.power}</div>
-      <div class="battle-slot-cost">Cost ${character.stats.cost}</div>
-      <div class="battle-slot-cooldown"></div>
+      <div class="battle-slot-cost">Cost ${cost}</div>
+      <div class="battle-slot-cooldown">${Math.ceil(remaining)}</div>
     `;
   });
 }

@@ -416,11 +416,24 @@ input {
   gap: 6px;
 
   text-align: center;
+  user-select: none;
 }
 
 .battle-slot-card:hover {
   background-color: #eff6ff;
   border-color: #2563eb;
+}
+
+.battle-slot-card:disabled {
+  cursor: not-allowed;
+}
+
+.battle-slot-card:disabled:hover {
+  background-color: #ffffff;
+}
+
+.battle-slot-card > * {
+  pointer-events: none;
 }
 
 .battle-slot-image {
@@ -442,9 +455,19 @@ input {
 }
 
 .battle-slot-power,
+.battle-slot-grade,
 .battle-slot-cost {
   font-size: 12px;
   color: #4b5563;
+}
+
+.battle-slot-card.cost-blocked {
+  opacity: 0.72;
+}
+
+.battle-slot-card.cost-blocked .battle-slot-cost {
+  color: #b91c1c;
+  font-weight: bold;
 }
 
 /* 등급별 테두리 */
