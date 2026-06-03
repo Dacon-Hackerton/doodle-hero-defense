@@ -43,6 +43,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const cardCooldowns = new Map();
   let cardCooldownFrameId = null;
   let lastCardCooldownTime = 0;
+  let currentStage = 1;
+  let isStageClearReplacementMode = false;
+  let isHandlingStageClear = false;
+  let fallenCharacter = null;
 
   const hasSavedSlotData = await loadSavedRunData();
 
@@ -92,9 +96,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       targetIndex = selectedSlotIndex;
     }
 
+    const replacedCharacter = characterSlots[targetIndex] ?? null;
+
+    if (isStageClearReplacementMode && replacedCharacter) {
+      fallenCharacter = {
+        ...replacedCharacter,
+        name: `타락한 ${replacedCharacter.name}`,
+        source: "fallen",
+        meta: {
+          ...replacedCharacter.meta,
+          corruptedAtStage: currentStage,
+        },
+      };
+    }
+
     characterSlots[targetIndex] = currentCharacter;
     selectedSlotIndex = targetIndex;
     selectedCharacter = currentCharacter;
+
+    isStageClearReplacementMode = false;
+  isHandlingStageClear = false;
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
     selectedJudgeManager.renderResult(selectedCharacter);
@@ -130,11 +151,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       alert("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
       return;
     }
+    if (isStageClearReplacementMode) {
+      alert("스테이지 클리어 후에는 새 캐릭터를 만들고 기존 슬롯 하나와 교체해야 전투를 시작할 수 있습니다.");
+      return;
+    }
 
     showScreen("battleScreen");
 
     if (!battleManager) {
       battleManager = new BattleManager("battleCanvas");
+
+      battleManager.setBattleEndHandler((battleResult) => {
+        if (battleResult.result === "WIN") {
+          handleStageClear();
+        }
+      });
     }
 
     battleManager.setStatusElement(battleStatusText);
@@ -277,6 +308,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         return false;
       }
 
+      currentStage = savedRundData.currentStage ?? 1;
+      isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
       characterSlots = savedRunData.characterSlots ?? [null, null, null];
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
 
@@ -296,6 +329,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       selectedCharacter = characterSlots[selectedSlotIndex] ?? null;
+      fallenCharacter = savedRunData.fallenCharacter ?? null;
 
       renderCharacterSlots(characterSlots, selectedSlotIndex);
 
@@ -314,8 +348,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function saveCurrentRunData() {
     try {
       await PlayerRunStorage.saveRunData({
+        currentStage,
         characterSlots,
         selectedSlotIndex,
+        fallenCharacter,
+        isStageClearReplacementMode,
         savedAt: Date.now(),
       });
 
@@ -323,6 +360,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (error) {
       console.warn("슬롯 데이터를 저장하지 못했습니다.", error);
     }
+  }
+
+  async function handleStageClear() {
+    if (isHandlingStageClear || isStageClearReplacementMode) {
+      return;
+    }
+
+    isHandlingStageClear = true;
+
+    const clearedStage = currentStage;
+
+    currentStage += 1;
+    currentCharacter = null;
+    selectedCharacter = null;
+    selectedSlotIndex = null;
+    isStageClearReplacementMode = true;
+
+    renderCharacterSlots(characterSlots, selectedSlotIndex);
+
+    await saveCurrentRunData();
+
+    alert(
+      `스테이지 ${clearedStage} 클리어!\n새 캐릭터를 그리고 기존 슬롯 하나와 교체하세요.`,
+    );
+
+    battleManager?.stop();
+    showScreen("drawScreen");
+
+    isHandlingStageClear = false;
   }
 });
 

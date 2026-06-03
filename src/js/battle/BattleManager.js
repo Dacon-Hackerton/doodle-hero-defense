@@ -35,6 +35,7 @@ export class BattleManager {
     this.lastTime = 0;
     this.animationFrameId = null;
     this.statusElement = null;
+    this.battleEndHandler = null;
 
     this.loop = this.loop.bind(this);
   }
@@ -42,6 +43,10 @@ export class BattleManager {
   setStatusElement(statusElement) {
     this.statusElement = statusElement;
     this.updateStatusText();
+  }
+
+  setBattleEndHandler(handler) {
+    this.battleEndHandler = handler;
   }
 
   start(allyCharacterOrCharacters) {
@@ -416,14 +421,31 @@ export class BattleManager {
   }
 
   finishBattle(nextState, resultMessage) {
+    if (
+      this.battleState === BATTLE_STATE.WIN ||
+      this.battleState === BATTLE_STATE.LOSE
+    ) {
+      return;
+    }
+
     this.battleState = nextState;
     this.resultMessage = resultMessage;
     this.noticeMessage = resultMessage;
+
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+
     this.updateStatusText();
+
+    if (this.battleEndHandler) {
+      this.battleEndHandler({
+        state: nextState,
+        result: resultMessage,
+        stage: this.stage,
+      });
+    }
   }
 
   markUnitDead(unit) {
