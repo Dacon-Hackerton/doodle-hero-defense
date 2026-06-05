@@ -1,4 +1,9 @@
 import { BATTLE_STATE, TEAM, UNIT_STATE } from "../constants/BattleConstants.js";
+import {
+  createDefaultEnemyCharacter,
+  normalizeCharacter,
+} from "../models/CharacterSchema.js";
+import { loadCorruptedCharacters } from "../storage/LocalStorageManager.js";
 import { BATTLE_CONFIG } from "./BattleConfig.js";
 import { applyBaseDamage, createBattleBases } from "./Base.js";
 import { BattleRenderer } from "./BattleRenderer.js";
@@ -30,6 +35,7 @@ export class BattleManager {
     this.enemySpawnTimer = BATTLE_CONFIG.enemySpawnInterval;
     this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.stage = 1;
+    this.currentStage = 1;
     this.resultMessage = "";
     this.noticeMessage = "";
     this.lastTime = 0;
@@ -38,6 +44,14 @@ export class BattleManager {
     this.battleEndHandler = null;
 
     this.loop = this.loop.bind(this);
+  }
+
+  setStage(stage) {
+    const nextStage = Number(stage);
+    this.currentStage = Number.isFinite(nextStage) && nextStage > 0
+      ? Math.floor(nextStage)
+      : 1;
+    this.stage = this.currentStage;
   }
 
   setStatusElement(statusElement) {
@@ -139,7 +153,7 @@ export class BattleManager {
       return;
     }
 
-    const enemyCharacter = this.createDefaultEnemyCharacter(this.stage);
+    const enemyCharacter = this.pickEnemyCharacter();
 
     this.enemyUnits.push(
       createBattleUnit(
@@ -149,6 +163,62 @@ export class BattleManager {
         BATTLE_CONFIG.unitY,
       ),
     );
+  }
+
+  pickEnemyCharacter() {
+    const corruptedEnemy = this.pickCorruptedEnemyCharacter();
+
+    if (corruptedEnemy) {
+      return corruptedEnemy;
+    }
+
+    return createDefaultEnemyCharacter(this.currentStage);
+  }
+
+  pickCorruptedEnemyCharacter() {
+    const corruptedCharacters = loadCorruptedCharacters();
+    const availableCharacters = corruptedCharacters.filter((character) => {
+      const corruptedAtStage = Number(character?.meta?.corruptedAtStage);
+
+      return Number.isFinite(corruptedAtStage) &&
+        corruptedAtStage < this.currentStage;
+    });
+
+    if (availableCharacters.length === 0) {
+      return null;
+    }
+
+    if (Math.random() >= BATTLE_CONFIG.corruptedEnemyChance) {
+      return null;
+    }
+
+    const selectedCharacter =
+      availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
+
+    return this.scaleEnemyCharacter(selectedCharacter, this.currentStage);
+  }
+
+  scaleEnemyCharacter(character, stage) {
+    const normalizedCharacter = normalizeCharacter(character);
+    const stageMultiplier = 1 + (stage - 1) * 0.15;
+
+    return normalizeCharacter({
+      ...normalizedCharacter,
+      id: `${normalizedCharacter.id}_enemy_${Date.now()}_${Math.random()
+        .toString(16)
+        .slice(2)}`,
+      name: `타락한 ${normalizedCharacter.name}`,
+      stats: {
+        ...normalizedCharacter.stats,
+        attack: Math.round(normalizedCharacter.stats.attack * stageMultiplier),
+        hp: Math.round(normalizedCharacter.stats.hp * stageMultiplier),
+        speed: normalizedCharacter.stats.speed,
+        attackSpeed: normalizedCharacter.stats.attackSpeed,
+        range: normalizedCharacter.stats.range,
+        cost: 0,
+        power: Math.round(normalizedCharacter.stats.power * stageMultiplier),
+      },
+    });
   }
 
   loop(timestamp) {
@@ -443,7 +513,7 @@ export class BattleManager {
       this.battleEndHandler({
         state: nextState,
         result: resultMessage,
-        stage: this.stage,
+        stage: this.currentStage,
       });
     }
   }
