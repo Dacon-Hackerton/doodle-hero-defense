@@ -9,6 +9,7 @@ const NAME_PREFIXES = [
 
 export class JudgeManager {
   constructor({
+    resultCard,
     previewImage,
     resultName,
     resultGrade,
@@ -21,6 +22,7 @@ export class JudgeManager {
     statRange,
     statCost,
   }) {
+    this.resultCard = resultCard ?? previewImage?.closest(".result-card") ?? null;
     this.previewImage = previewImage;
     this.resultName = resultName;
     this.resultGrade = resultGrade;
@@ -61,7 +63,16 @@ export class JudgeManager {
 
   renderResult(character) {
     if (!character) {
+      if (this.resultCard) {
+        this.resultCard.hidden = true;
+        this.resultCard.classList.add("hidden");
+      }
       return;
+    }
+
+    if (this.resultCard) {
+      this.resultCard.hidden = false;
+      this.resultCard.classList.remove("hidden");
     }
 
     this.previewImage.src = character.imageData;

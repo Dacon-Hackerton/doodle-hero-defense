@@ -119,16 +119,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     canvasLevel,
   });
 
-  if (hasSavedSlotData) {
-    showScreen("judgeScreen");
-  } else {
+  if (!hasSavedSlotData) {
     currentStage = 1;
     saveCurrentStage(currentStage);
-    showScreen("startScreen");
   }
 
   updateStartActions(hasSavedSlotData);
   updateBattleStartButtonState();
+  showScreen("startScreen");
 
   bindClick(startButton, "startButton", () => {
     showScreen("drawScreen");
@@ -162,6 +160,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     stopCardCooldownLoop();
 
     currentCharacter = null;
+    clearCurrentResult();
     drawingCanvas?.clearCanvas();
     updateBattleStartButtonState();
     showScreen("drawScreen");
@@ -193,7 +192,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       if (money < price) {
-        alert("돈이 부족합니다.");
+        showToast("돈이 부족합니다.");
         return;
       }
 
@@ -210,12 +209,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const nextPrice = currentConfig.nextPrice;
 
     if (inkTankLevel >= MAX_INK_TANK_LEVEL || nextPrice === null) {
-      alert("이미 잉크통이 최대 레벨입니다.");
+      showToast("이미 잉크통이 최대 레벨입니다.");
       return;
     }
 
     if (money < nextPrice) {
-      alert("돈이 부족합니다.");
+      showToast("돈이 부족합니다.");
       return;
     }
 
@@ -237,26 +236,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     const nextPrice = currentConfig.nextPrice;
 
     if (canvasLevel >= MAX_CANVAS_LEVEL || nextPrice === null) {
-      alert("이미 캔버스가 최대 레벨입니다.");
+      showToast("이미 캔버스가 최대 레벨입니다.");
       return;
     }
 
     if (money < nextPrice) {
-      alert("돈이 부족합니다.");
+      showToast("돈이 부족합니다.");
       return;
     }
+    showModal({
+      title: "캔버스 확장",
+      message: "캔버스를 확장하면 현재 그리던 그림이 초기화됩니다. 그래도 확장할까요?",
+      actions: [
+        {
+          label: "취소",
+          onClick: hideModal,
+        },
+        {
+          label: "확장하기",
+          primary: true,
+          onClick: () => {
+            hideModal();
+            upgradeCanvas(nextPrice);
+          },
+        },
+      ],
+    });
+  });
 
-    const confirmUpgrade = confirm(
-      "캔버스를 확장하면 현재 그리던 그림이 초기화됩니다. 그래도 확장할까요?",
-    );
 
-    if (!confirmUpgrade) {
-      return;
-    }
-
-    money -= nextPrice;
+  function upgradeCanvas(price) {
+    money -= price;
     canvasLevel += 1;
     currentCharacter = null;
+    clearCurrentResult();
 
     applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
 
@@ -267,8 +280,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       canvasLevel,
     });
 
-  saveCurrentRunData();
-});
+    saveCurrentRunData();
+  }
 
   bindClick(saveSlotButton, "saveSlotButton", () => {
     if (!currentCharacter) {
@@ -299,6 +312,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     selectedSlotIndex = targetIndex;
     selectedCharacter = character;
     currentCharacter = null;
+    clearCurrentResult();
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
     selectedJudgeManager.renderResult(selectedCharacter);
@@ -330,6 +344,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     selectedSlotIndex = targetIndex;
     selectedCharacter = character;
     currentCharacter = null;
+    clearCurrentResult();
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
 
@@ -424,6 +439,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(backDrawButton, "backDrawButton", () => {
     currentCharacter = null;
+    clearCurrentResult();
     showScreen("drawScreen");
   });
 
@@ -618,6 +634,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     isHandlingStageClear = false;
     fallenCharacter = null;
     cardCooldowns.clear();
+    clearCurrentResult();
 
     await PlayerRunStorage.clearRunData();
     saveCurrentStage(currentStage);
@@ -636,6 +653,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentStage += 1;
     saveCurrentStage(currentStage);
     currentCharacter = null;
+    clearCurrentResult();
     selectedCharacter = null;
     selectedSlotIndex = null;
     isStageClearReplacementMode = true;
@@ -681,7 +699,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function showToast(message) {
     const toast = document.getElementById("toastMessage");
-
     if (!toast) {
       return;
     }
@@ -779,6 +796,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const shouldShowComparison = getFilledSlotCount() >= 3;
     selectedResultCard.hidden = !shouldShowComparison;
     selectedResultCard.classList.toggle("hidden", !shouldShowComparison);
+  }
+
+  function clearCurrentResult() {
+    currentJudgeManager?.renderResult(null);
   }
 
   function getFilledSlotCount() {
