@@ -11,6 +11,46 @@ import {
 import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
 const DEFAULT_CARD_COOLDOWN = 3.0;
+const STAGE_CLEAR_REWARD = 5000;
+
+const INK_TANK_CONFIG = {
+  1: {
+    ratio: 0.5,
+    nextPrice: 2000,
+  },
+  2: {
+    ratio: 0.65,
+    nextPrice: 4000,
+  },
+  3: {
+    ratio: 0.8,
+    nextPrice: null,
+  },
+};
+
+const MAX_INK_TANK_LEVEL = 3;
+
+
+const CANVAS_CONFIG = {
+  1: {
+    width: 400,
+    height: 400,
+    nextPrice: 3000,
+  },
+  2: {
+    width: 500,
+    height: 500,
+    nextPrice: 6000,
+  },
+  3: {
+    width: 600,
+    height: 600,
+    nextPrice: null,
+  },
+};
+
+const MAX_CANVAS_LEVEL = 3;
+
 
 document.addEventListener("DOMContentLoaded", async () => {
   const drawingCanvas = createDrawingCanvas();
@@ -35,6 +75,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const saveSlotButton = document.getElementById("saveSlotButton");
   const slotButtons = document.querySelectorAll(".character-slot");
   const battleSlotButtons = document.querySelectorAll(".battle-slot-card");
+  const shopColorButtons = document.querySelectorAll(".shop-color-item");
+  const inkTankUpgradeButton = document.getElementById("inkTankUpgradeButton");
+  const canvasUpgradeButton = document.getElementById("canvasUpgradeButton");
 
   battleSlotButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -58,17 +101,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
   let fallenCharacter = null;
+  let money = 10000;
+  let unlockedColors = ["#000000"];
+  let inkTankLevel = 1;
+  let canvasLevel = 1;
 
   const hasSavedSlotData = await loadSavedRunData();
 
-  if (!hasSavedSlotData) {
+  renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
+
+  applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
+
+  renderShopState({
+    money,
+    unlockedColors,
+    inkTankLevel,
+    canvasLevel,
+  });
+
+  if (hasSavedSlotData) {
+    showScreen("judgeScreen");
+  } else {
     currentStage = 1;
     saveCurrentStage(currentStage);
+    showScreen("startScreen");
   }
 
   updateStartActions(hasSavedSlotData);
   updateBattleStartButtonState();
-  showScreen("startScreen");
 
   bindClick(startButton, "startButton", () => {
     showScreen("drawScreen");
@@ -122,6 +182,93 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateComparisonVisibility();
     showScreen("judgeScreen");
   });
+
+  shopColorButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const color = button.dataset.shopColor;
+      const price = Number(button.dataset.price);
+
+      if (unlockedColors.includes(color)) {
+          return;
+      }
+
+      if (money < price) {
+        alert("돈이 부족합니다.");
+        return;
+      }
+
+      money -= price;
+      unlockedColors.push(color);
+
+      renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
+      saveCurrentRunData();
+    });
+  });
+
+  bindClick(inkTankUpgradeButton, "inkTankUpgradeButton", () => {
+    const currentConfig = INK_TANK_CONFIG[inkTankLevel];
+    const nextPrice = currentConfig.nextPrice;
+
+    if (inkTankLevel >= MAX_INK_TANK_LEVEL || nextPrice === null) {
+      alert("이미 잉크통이 최대 레벨입니다.");
+      return;
+    }
+
+    if (money < nextPrice) {
+      alert("돈이 부족합니다.");
+      return;
+    }
+
+    money -= nextPrice;
+    inkTankLevel += 1;
+
+    if (drawingCanvas) {
+      drawingCanvas.setMaxInk(
+        getMaxInkByInkTankLevel(drawingCanvas.canvas, inkTankLevel),
+      );
+    }
+
+    renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
+    saveCurrentRunData();
+  });
+
+  bindClick(canvasUpgradeButton, "canvasUpgradeButton", () => {
+    const currentConfig = getCanvasConfig(canvasLevel);
+    const nextPrice = currentConfig.nextPrice;
+
+    if (canvasLevel >= MAX_CANVAS_LEVEL || nextPrice === null) {
+      alert("이미 캔버스가 최대 레벨입니다.");
+      return;
+    }
+
+    if (money < nextPrice) {
+      alert("돈이 부족합니다.");
+      return;
+    }
+
+    const confirmUpgrade = confirm(
+      "캔버스를 확장하면 현재 그리던 그림이 초기화됩니다. 그래도 확장할까요?",
+    );
+
+    if (!confirmUpgrade) {
+      return;
+    }
+
+    money -= nextPrice;
+    canvasLevel += 1;
+    currentCharacter = null;
+
+    applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
+
+    renderShopState({
+      money,
+      unlockedColors,
+      inkTankLevel,
+      canvasLevel,
+    });
+
+  saveCurrentRunData();
+});
 
   bindClick(saveSlotButton, "saveSlotButton", () => {
     if (!currentCharacter) {
@@ -395,6 +542,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
       characterSlots = savedRunData.characterSlots ?? [null, null, null];
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
+      money = savedRunData.money ?? 10000;
+      unlockedColors = savedRunData.unlockedColors ?? ["#000000"];
+      inkTankLevel = savedRunData.inkTankLevel ?? 1;
+      canvasLevel = savedRunData.canvasLevel ?? 1;
 
       const hasSlotCharacter = characterSlots.some(
         (character) => character !== null,
@@ -426,6 +577,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("저장된 슬롯 데이터 불러오기 완료");
       return true;
     } catch (error) {
+      console.warn("저장된 플레이 데이터를 불러오지 못했습니다.", error);
       showToast("저장된 데이터를 불러오지 못했습니다.");
       return false;
     }
@@ -439,6 +591,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         selectedSlotIndex,
         fallenCharacter,
         isStageClearReplacementMode,
+        money,
+        unlockedColors,
+        inkTankLevel,
+        canvasLevel,
         savedAt: Date.now(),
       });
       saveCurrentStage(currentStage);
@@ -476,6 +632,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     isHandlingStageClear = true;
+    money += STAGE_CLEAR_REWARD;
     currentStage += 1;
     saveCurrentStage(currentStage);
     currentCharacter = null;
@@ -702,6 +859,8 @@ function createDrawingCanvas() {
     return null;
   }
 
+  const maxInk = getMaxInkByInkTankLevel(canvas, 1);
+
   const drawingCanvas = new DrawingCanvas({
     canvas,
     colorButtons: document.querySelectorAll(".color-btn"),
@@ -711,7 +870,7 @@ function createDrawingCanvas() {
     undoButton,
     clearButton,
     inkText,
-    maxInk: 128000,
+    maxInk,
   });
 
   drawingCanvas.init();
@@ -870,4 +1029,117 @@ function bindClick(button, id, handler) {
   }
 
   button.addEventListener("click", handler);
+}
+
+function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel = 1, }) {
+  const moneyText = document.getElementById("moneyText");
+  const shopColorButtons = document.querySelectorAll(".shop-color-item");
+  const colorButtons = document.querySelectorAll(".color-btn");
+  const inkTankUpgradeButton = document.getElementById("inkTankUpgradeButton");
+  const canvasUpgradeButton = document.getElementById("canvasUpgradeButton");
+
+  if (moneyText) {
+    moneyText.textContent = `보유 돈: ${money}원`;
+  }
+
+  colorButtons.forEach((button) => {
+    const color = button.dataset.color;
+    const isUnlocked = unlockedColors.includes(color);
+
+    button.classList.toggle("locked", !isUnlocked);
+    button.disabled = !isUnlocked;
+  });
+
+  shopColorButtons.forEach((button) => {
+    const color = button.dataset.shopColor;
+    const price = Number(button.dataset.price);
+    const isPurchased = unlockedColors.includes(color);
+
+    if (isPurchased) {
+      button.textContent = "구매 완료";
+      button.classList.add("purchased");
+      button.disabled = true;
+      return;
+    }
+
+    button.classList.remove("purchased");
+    button.disabled = money < price;
+  });
+
+  if (!canvasUpgradeButton) {
+    return;
+  }
+
+  const canvasConfig = getCanvasConfig(canvasLevel);
+  const nextCanvasLevel = canvasLevel + 1;
+  const nextCanvasPrice = canvasConfig.nextPrice;
+
+  canvasUpgradeButton.classList.remove("max-level");
+
+  if (canvasLevel >= MAX_CANVAS_LEVEL || nextCanvasPrice === null) {
+    canvasUpgradeButton.textContent = `캔버스 Lv.${canvasLevel} / 최대 레벨`;
+    canvasUpgradeButton.classList.add("max-level");
+    canvasUpgradeButton.disabled = true;
+  } else {
+    canvasUpgradeButton.textContent =
+      `캔버스 확장 Lv.${nextCanvasLevel} - ${nextCanvasPrice}원`;
+    canvasUpgradeButton.disabled = money < nextCanvasPrice;
+  }
+
+
+  if (!inkTankUpgradeButton) {
+    return;
+  }
+
+  const inkTankConfig = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
+  const nextInkTankLevel = inkTankLevel + 1;
+  const nextInkTankPrice = inkTankConfig.nextPrice;
+
+  inkTankUpgradeButton.classList.remove("max-level");
+
+  if (inkTankLevel >= MAX_INK_TANK_LEVEL || nextInkTankPrice === null) {
+    inkTankUpgradeButton.textContent = `잉크통 Lv.${inkTankLevel} / 최대 레벨`;
+    inkTankUpgradeButton.classList.add("max-level");
+    inkTankUpgradeButton.disabled = true;
+    return;
+  }
+
+  inkTankUpgradeButton.textContent =
+    `잉크통 업그레이드 Lv.${nextInkTankLevel} - ${nextInkTankPrice}원`;
+  inkTankUpgradeButton.disabled = money < nextInkTankPrice;
+}
+
+function getMaxInkBySize(width, height, inkTankLevel) {
+  const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
+
+  return Math.floor(width * height * config.ratio);
+}
+
+function getCanvasConfig(canvasLevel) {
+  return CANVAS_CONFIG[canvasLevel] ?? CANVAS_CONFIG[1];
+}
+
+function applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel) {
+  if (!drawingCanvas) {
+    return;
+  }
+
+  const canvasConfig = getCanvasConfig(canvasLevel);
+  const maxInk = getMaxInkBySize(
+    canvasConfig.width,
+    canvasConfig.height,
+    inkTankLevel,
+  );
+
+  drawingCanvas.setCanvasSize(
+    canvasConfig.width,
+    canvasConfig.height,
+    maxInk,
+  );
+}
+
+function getMaxInkByInkTankLevel(canvas, inkTankLevel) {
+  const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
+
+  return Math.floor(canvas.width * canvas.height * config.ratio);
 }
