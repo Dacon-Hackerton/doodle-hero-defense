@@ -1,0 +1,566 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.screen {
+  position: relative;
+  min-height: 100vh;
+  padding: 28px;
+  text-align: center;
+}
+
+.hidden,
+[hidden] {
+  display: none !important;
+}
+
+.screen-header {
+  max-width: 960px;
+  margin: 0 auto 18px;
+}
+
+.screen-header h1,
+.screen-header h2 {
+  margin: 0 0 10px;
+}
+
+.battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+canvas {
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+button,
+input,
+select {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+button {
+  padding: 10px 16px;
+  margin: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: #e5e7eb;
+}
+
+.primary-btn {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.primary-btn:hover {
+  background-color: #1d4ed8;
+}
+
+input {
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.start-content {
+  max-width: 680px;
+  margin: 0 auto;
+  padding-top: 18vh;
+}
+
+.start-content h1 {
+  margin: 0 0 12px;
+}
+
+.start-content p {
+  margin: 0 0 24px;
+  color: #4b5563;
+}
+
+.start-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.draw-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+#drawCanvas {
+  background-color: white;
+  border: 3px solid #111827;
+  cursor: crosshair;
+  max-width: 100%;
+}
+
+#battleCanvas {
+  background-color: #d7ecff;
+  border: 3px solid #111827;
+  display: block;
+  width: min(960px, 100%);
+  height: auto;
+  margin: 0 auto;
+}
+
+.battle-controls {
+  width: min(960px, 100%);
+  margin: 14px auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#battleStatusText {
+  min-width: 280px;
+  margin: 6px 0;
+  color: #111827;
+  font-weight: bold;
+  text-align: left;
+}
+
+.tool-panel {
+  width: 220px;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #111827;
+}
+
+.tool-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.tool-group {
+  text-align: left;
+}
+
+.tool-group p {
+  margin: 0 0 8px 0;
+}
+
+.color-palette {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.color-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 8px;
+}
+
+.color-btn.active {
+  border-color: #ffffff;
+  outline: 3px solid #2563eb;
+}
+
+.judge-result-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.result-card {
+  width: 360px;
+  margin: 20px 0;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+}
+
+.result-card-title {
+  margin-top: 0;
+}
+
+#currentPreviewImage,
+#selectedPreviewImage {
+  width: 200px;
+  height: 200px;
+  background-color: white;
+  object-fit: contain;
+  border: 2px solid #111827;
+}
+
+.stat-box {
+  margin-top: 12px;
+  padding: 10px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-row span {
+  color: #4b5563;
+}
+
+.stat-row strong {
+  color: #111827;
+}
+
+.slot-section {
+  width: 560px;
+  max-width: 100%;
+  margin: 20px auto;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+}
+
+.slot-section h3 {
+  margin: 0 0 12px;
+}
+
+.character-slots {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+}
+
+.character-slot {
+  width: 160px;
+  height: 160px;
+  padding: 8px;
+  border: 2px dashed #cbd5e1;
+  background-color: #f9fafb;
+  color: #111827;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  text-align: center;
+  overflow: hidden;
+}
+
+.character-slot.filled {
+  border-style: solid;
+  border-color: #2563eb;
+  background-color: #eff6ff;
+}
+
+.character-slot.selected {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px #f59e0b;
+}
+
+.slot-preview-image {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.slot-info {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.slot-name {
+  font-weight: bold;
+  font-size: 12px;
+  word-break: keep-all;
+}
+
+.slot-power {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+@media (max-width: 720px) {
+  .screen {
+    padding: 18px;
+  }
+
+  .draw-layout,
+  .battle-header,
+  .battle-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tool-panel,
+  .result-card,
+  .slot-section {
+    width: min(100%, 400px);
+  }
+
+  .judge-result-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .character-slots {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .character-slot {
+    width: min(100%, 320px);
+    height: 150px;
+  }
+
+  #battleStatusText {
+    min-width: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .battle-slot-panel {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .battle-slot-card {
+    width: min(100%, 320px);
+    height: 150px;
+  }
+}
+
+.battle-slot-panel {
+  width: min(960px, 100%);
+  margin: 14px auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.battle-slot-card {
+  position: relative;
+  width: 170px;
+  height: 170px;
+  padding: 10px;
+  border: 3px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #111827;
+  border-radius: 12px;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.battle-slot-card:hover {
+  background-color: #eff6ff;
+  border-color: #2563eb;
+}
+
+.battle-slot-card:disabled {
+  cursor: not-allowed;
+}
+
+.battle-slot-card:disabled:hover {
+  background-color: #ffffff;
+}
+
+.battle-slot-card > * {
+  pointer-events: none;
+}
+
+.battle-slot-image {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.battle-slot-name {
+  width: 100%;
+  font-size: 13px;
+  font-weight: bold;
+  word-break: keep-all;
+  line-height: 1.3;
+}
+
+.battle-slot-power,
+.battle-slot-grade,
+.battle-slot-cost {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.battle-slot-card.cost-blocked {
+  opacity: 0.72;
+}
+
+.battle-slot-card.cost-blocked .battle-slot-cost {
+  color: #b91c1c;
+  font-weight: bold;
+}
+
+/* 등급별 테두리 */
+.battle-slot-card.grade-SS {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+.battle-slot-card.grade-S {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.22);
+}
+
+.battle-slot-card.grade-A {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.battle-slot-card.grade-B {
+  border-color: #10b981;
+}
+
+.battle-slot-card.grade-C {
+  border-color: #94a3b8;
+}
+
+/* A가 나중에 쿨타임 구현할 때 쓸 자리 */
+.battle-slot-cooldown {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(17, 24, 39, 0.55);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.battle-slot-card.cooldown .battle-slot-cooldown {
+  display: flex;
+}
+
+.battle-result-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgba(15, 23, 42, 0.66);
+}
+
+.battle-result-overlay.hidden {
+  display: none !important;
+}
+
+.battle-result-panel {
+  width: min(420px, 100%);
+  padding: 28px;
+  border: 2px solid #111827;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #111827;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+}
+
+.battle-result-panel h2 {
+  margin: 0 0 10px;
+  font-size: 32px;
+}
+
+.battle-result-panel p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.battle-result-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
