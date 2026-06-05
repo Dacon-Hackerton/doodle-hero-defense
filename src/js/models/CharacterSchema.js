@@ -110,7 +110,7 @@ export function createCorruptedCharacter(character, currentStage) {
 }
 
 export function isCorruptedCharacter(character) {
-  return character?.meta?.corruptedAtStage !== null;
+  return Number.isFinite(Number(character?.meta?.corruptedAtStage));
 }
 
 export function isValidCharacter(character) {

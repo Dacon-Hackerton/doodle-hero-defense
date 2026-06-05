@@ -1,4 +1,9 @@
 import { BATTLE_STATE, TEAM, UNIT_STATE } from "../constants/BattleConstants.js";
+import {
+  createDefaultEnemyCharacter,
+  normalizeCharacter,
+} from "../models/CharacterSchema.js";
+import { loadCorruptedCharacters } from "../storage/LocalStorageManager.js";
 import { BATTLE_CONFIG } from "./BattleConfig.js";
 import { applyBaseDamage, createBattleBases } from "./Base.js";
 import { BattleRenderer } from "./BattleRenderer.js";
@@ -27,9 +32,11 @@ export class BattleManager {
     this.currentCost = BATTLE_CONFIG.startCost;
     this.maxCost = BATTLE_CONFIG.maxCost;
     this.costRegenPerSecond = BATTLE_CONFIG.costRegenPerSecond;
+    this.lastSummonedCost = null;
     this.enemySpawnTimer = BATTLE_CONFIG.enemySpawnInterval;
     this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.stage = 1;
+    this.currentStage = 1;
     this.resultMessage = "";
     this.noticeMessage = "";
     this.lastTime = 0;
@@ -38,6 +45,14 @@ export class BattleManager {
     this.battleEndHandler = null;
 
     this.loop = this.loop.bind(this);
+  }
+
+  setStage(stage) {
+    const nextStage = Number(stage);
+    this.currentStage = Number.isFinite(nextStage) && nextStage > 0
+      ? Math.floor(nextStage)
+      : 1;
+    this.stage = this.currentStage;
   }
 
   setStatusElement(statusElement) {
@@ -78,6 +93,7 @@ export class BattleManager {
     this.currentCost = BATTLE_CONFIG.startCost;
     this.maxCost = BATTLE_CONFIG.maxCost;
     this.costRegenPerSecond = BATTLE_CONFIG.costRegenPerSecond;
+    this.lastSummonedCost = null;
     this.enemySpawnTimer = 0;
     this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.resultMessage = "";
@@ -118,6 +134,7 @@ export class BattleManager {
     }
 
     this.currentCost = Math.max(0, this.currentCost - summonCost);
+    this.lastSummonedCost = summonCost;
     this.allyUnits.push(
       createBattleUnit(
         allyCharacter,
@@ -139,7 +156,7 @@ export class BattleManager {
       return;
     }
 
-    const enemyCharacter = this.createDefaultEnemyCharacter(this.stage);
+    const enemyCharacter = this.pickEnemyCharacter();
 
     this.enemyUnits.push(
       createBattleUnit(
@@ -149,6 +166,62 @@ export class BattleManager {
         BATTLE_CONFIG.unitY,
       ),
     );
+  }
+
+  pickEnemyCharacter() {
+    const corruptedEnemy = this.pickCorruptedEnemyCharacter();
+
+    if (corruptedEnemy) {
+      return corruptedEnemy;
+    }
+
+    return createDefaultEnemyCharacter(this.currentStage);
+  }
+
+  pickCorruptedEnemyCharacter() {
+    const corruptedCharacters = loadCorruptedCharacters();
+    const availableCharacters = corruptedCharacters.filter((character) => {
+      const corruptedAtStage = Number(character?.meta?.corruptedAtStage);
+
+      return Number.isFinite(corruptedAtStage) &&
+        corruptedAtStage < this.currentStage;
+    });
+
+    if (availableCharacters.length === 0) {
+      return null;
+    }
+
+    if (Math.random() >= BATTLE_CONFIG.corruptedEnemyChance) {
+      return null;
+    }
+
+    const selectedCharacter =
+      availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
+
+    return this.scaleEnemyCharacter(selectedCharacter, this.currentStage);
+  }
+
+  scaleEnemyCharacter(character, stage) {
+    const normalizedCharacter = normalizeCharacter(character);
+    const stageMultiplier = 1 + (stage - 1) * 0.15;
+
+    return normalizeCharacter({
+      ...normalizedCharacter,
+      id: `${normalizedCharacter.id}_enemy_${Date.now()}_${Math.random()
+        .toString(16)
+        .slice(2)}`,
+      name: `타락한 ${normalizedCharacter.name}`,
+      stats: {
+        ...normalizedCharacter.stats,
+        attack: Math.round(normalizedCharacter.stats.attack * stageMultiplier),
+        hp: Math.round(normalizedCharacter.stats.hp * stageMultiplier),
+        speed: normalizedCharacter.stats.speed,
+        attackSpeed: normalizedCharacter.stats.attackSpeed,
+        range: normalizedCharacter.stats.range,
+        cost: 0,
+        power: Math.round(normalizedCharacter.stats.power * stageMultiplier),
+      },
+    });
   }
 
   loop(timestamp) {
@@ -443,7 +516,7 @@ export class BattleManager {
       this.battleEndHandler({
         state: nextState,
         result: resultMessage,
-        stage: this.stage,
+        stage: this.currentStage,
       });
     }
   }
@@ -489,10 +562,6 @@ export class BattleManager {
     return Number.isFinite(cost) ? Math.max(0, cost) : 0;
   }
 
-  getPrimaryAllyCost() {
-    return this.getCharacterCost(this.allyCharacters[0]);
-  }
-
   getRenderState() {
     return {
       battleState: this.battleState,
@@ -502,7 +571,7 @@ export class BattleManager {
       enemyUnits: this.enemyUnits,
       currentCost: this.currentCost,
       maxCost: this.maxCost,
-      primaryAllyCost: this.getPrimaryAllyCost(),
+      lastSummonedCost: this.lastSummonedCost,
       noticeMessage: this.noticeMessage,
       resultMessage: this.resultMessage,
     };
