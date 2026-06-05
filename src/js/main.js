@@ -160,6 +160,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     stopCardCooldownLoop();
 
     currentCharacter = null;
+    clearCurrentResult();
     drawingCanvas?.clearCanvas();
     updateBattleStartButtonState();
     showScreen("drawScreen");
@@ -268,6 +269,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     money -= price;
     canvasLevel += 1;
     currentCharacter = null;
+    clearCurrentResult();
 
     applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
 
@@ -310,6 +312,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     selectedSlotIndex = targetIndex;
     selectedCharacter = character;
     currentCharacter = null;
+    clearCurrentResult();
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
     selectedJudgeManager.renderResult(selectedCharacter);
@@ -341,6 +344,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     selectedSlotIndex = targetIndex;
     selectedCharacter = character;
     currentCharacter = null;
+    clearCurrentResult();
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
 
@@ -435,6 +439,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(backDrawButton, "backDrawButton", () => {
     currentCharacter = null;
+    clearCurrentResult();
     showScreen("drawScreen");
   });
 
@@ -629,6 +634,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     isHandlingStageClear = false;
     fallenCharacter = null;
     cardCooldowns.clear();
+    clearCurrentResult();
 
     await PlayerRunStorage.clearRunData();
     saveCurrentStage(currentStage);
@@ -647,6 +653,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentStage += 1;
     saveCurrentStage(currentStage);
     currentCharacter = null;
+    clearCurrentResult();
     selectedCharacter = null;
     selectedSlotIndex = null;
     isStageClearReplacementMode = true;
@@ -789,6 +796,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const shouldShowComparison = getFilledSlotCount() >= 3;
     selectedResultCard.hidden = !shouldShowComparison;
     selectedResultCard.classList.toggle("hidden", !shouldShowComparison);
+  }
+
+  function clearCurrentResult() {
+    currentJudgeManager?.renderResult(null);
   }
 
   function getFilledSlotCount() {
