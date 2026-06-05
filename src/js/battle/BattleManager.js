@@ -32,6 +32,7 @@ export class BattleManager {
     this.currentCost = BATTLE_CONFIG.startCost;
     this.maxCost = BATTLE_CONFIG.maxCost;
     this.costRegenPerSecond = BATTLE_CONFIG.costRegenPerSecond;
+    this.lastSummonedCost = null;
     this.enemySpawnTimer = BATTLE_CONFIG.enemySpawnInterval;
     this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.stage = 1;
@@ -92,6 +93,7 @@ export class BattleManager {
     this.currentCost = BATTLE_CONFIG.startCost;
     this.maxCost = BATTLE_CONFIG.maxCost;
     this.costRegenPerSecond = BATTLE_CONFIG.costRegenPerSecond;
+    this.lastSummonedCost = null;
     this.enemySpawnTimer = 0;
     this.enemySpawnInterval = BATTLE_CONFIG.enemySpawnInterval;
     this.resultMessage = "";
@@ -132,6 +134,7 @@ export class BattleManager {
     }
 
     this.currentCost = Math.max(0, this.currentCost - summonCost);
+    this.lastSummonedCost = summonCost;
     this.allyUnits.push(
       createBattleUnit(
         allyCharacter,
@@ -559,10 +562,6 @@ export class BattleManager {
     return Number.isFinite(cost) ? Math.max(0, cost) : 0;
   }
 
-  getPrimaryAllyCost() {
-    return this.getCharacterCost(this.allyCharacters[0]);
-  }
-
   getRenderState() {
     return {
       battleState: this.battleState,
@@ -572,7 +571,7 @@ export class BattleManager {
       enemyUnits: this.enemyUnits,
       currentCost: this.currentCost,
       maxCost: this.maxCost,
-      primaryAllyCost: this.getPrimaryAllyCost(),
+      lastSummonedCost: this.lastSummonedCost,
       noticeMessage: this.noticeMessage,
       resultMessage: this.resultMessage,
     };

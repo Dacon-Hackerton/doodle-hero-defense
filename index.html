@@ -13,7 +13,11 @@
       <div class="start-content">
         <h1>낙서 용사 디펜스</h1>
         <p>내가 그린 낙서가 전투 유닛이 되는 라인 디펜스 게임</p>
-        <button id="startButton" type="button" class="primary-btn">시작하기</button>
+        <div class="start-actions">
+          <button id="startButton" type="button" class="primary-btn">시작하기</button>
+          <button id="continueButton" type="button" class="primary-btn hidden">이어하기</button>
+          <button id="newGameButton" type="button" class="hidden">새 게임</button>
+        </div>
       </div>
     </section>
 
@@ -196,7 +200,31 @@
         <button id="restartBattleButton" type="button">Restart Battle</button>
         <p id="battleStatusText" aria-live="polite">READY | Cost 0 / 1000</p>
       </div>
+
+      <div id="battleResultOverlay" class="battle-result-overlay hidden">
+        <div class="battle-result-panel">
+          <h2 id="battleResultTitle">승리!</h2>
+          <p id="battleResultMessage">전투가 종료되었습니다.</p>
+
+          <div class="battle-result-actions">
+            <button id="returnTitleButton" type="button">타이틀로 돌아가기</button>
+            <button id="goDrawButton" type="button" class="primary-btn">
+              새로운 그림 그리기
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
+
+    <div id="toastMessage" class="toast-message hidden" role="status" aria-live="polite"></div>
+
+    <div id="appModal" class="app-modal hidden" role="dialog" aria-modal="true">
+      <div class="app-modal-panel">
+        <h2 id="appModalTitle"></h2>
+        <p id="appModalMessage"></p>
+        <div id="appModalActions" class="app-modal-actions"></div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./src/js/main.js"></script>
