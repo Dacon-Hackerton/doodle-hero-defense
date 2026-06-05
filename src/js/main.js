@@ -119,16 +119,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     canvasLevel,
   });
 
-  if (hasSavedSlotData) {
-    showScreen("judgeScreen");
-  } else {
+  if (!hasSavedSlotData) {
     currentStage = 1;
     saveCurrentStage(currentStage);
-    showScreen("startScreen");
   }
 
   updateStartActions(hasSavedSlotData);
   updateBattleStartButtonState();
+  showScreen("startScreen");
 
   bindClick(startButton, "startButton", () => {
     showScreen("drawScreen");
