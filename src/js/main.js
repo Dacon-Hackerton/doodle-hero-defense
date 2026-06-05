@@ -2,6 +2,12 @@ import { BattleManager } from "./battle/BattleManager.js";
 import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
 import { StatCalculator } from "./drawing/StatCalculator.js";
+import { createCorruptedCharacter } from "./models/CharacterSchema.js";
+import {
+  addCorruptedCharacter,
+  loadCurrentStage,
+  saveCurrentStage,
+} from "./storage/LocalStorageManager.js";
 import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
 const DEFAULT_CARD_COOLDOWN = 3.0;
@@ -43,7 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const cardCooldowns = new Map();
   let cardCooldownFrameId = null;
   let lastCardCooldownTime = 0;
-  let currentStage = 1;
+  let currentStage = loadCurrentStage();
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
   let fallenCharacter = null;
@@ -99,15 +105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const replacedCharacter = characterSlots[targetIndex] ?? null;
 
     if (isStageClearReplacementMode && replacedCharacter) {
-      fallenCharacter = {
-        ...replacedCharacter,
-        name: `타락한 ${replacedCharacter.name}`,
-        source: "fallen",
-        meta: {
-          ...replacedCharacter.meta,
-          corruptedAtStage: currentStage,
-        },
-      };
+      fallenCharacter = markCharacterAsCorrupted(replacedCharacter, currentStage);
     }
 
     characterSlots[targetIndex] = currentCharacter;
@@ -115,7 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     selectedCharacter = currentCharacter;
 
     isStageClearReplacementMode = false;
-  isHandlingStageClear = false;
+    isHandlingStageClear = false;
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
     selectedJudgeManager.renderResult(selectedCharacter);
@@ -169,6 +167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     battleManager.setStatusElement(battleStatusText);
+    battleManager.setStage(currentStage);
     battleManager.startBattle(characterSlots);
     resetCardCooldowns(characterSlots);
     renderBattleSlotCards(characterSlots, {
@@ -183,6 +182,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    battleManager.setStage(currentStage);
     battleManager.startBattle(characterSlots);
     resetCardCooldowns(characterSlots);
     renderBattleSlotCards(characterSlots, {
@@ -308,7 +308,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return false;
       }
 
-      currentStage = savedRundData.currentStage ?? 1;
+      currentStage = savedRunData.currentStage ?? loadCurrentStage();
       isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
       characterSlots = savedRunData.characterSlots ?? [null, null, null];
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
@@ -355,6 +355,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         isStageClearReplacementMode,
         savedAt: Date.now(),
       });
+      saveCurrentStage(currentStage);
 
       console.log("슬롯 데이터 저장 완료");
     } catch (error) {
@@ -372,6 +373,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const clearedStage = currentStage;
 
     currentStage += 1;
+    saveCurrentStage(currentStage);
     currentCharacter = null;
     selectedCharacter = null;
     selectedSlotIndex = null;
@@ -390,6 +392,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     isHandlingStageClear = false;
   }
+
+  function markCharacterAsCorrupted(character, stage) {
+    const corruptedCharacter = createCorruptedCharacter(character, stage);
+    addCorruptedCharacter(corruptedCharacter);
+
+    return corruptedCharacter;
+  }
+
+  window.__debugAddCorruptedCharacter = (character) => {
+    const corruptedCharacter = markCharacterAsCorrupted(
+      character,
+      currentStage,
+    );
+
+    saveCurrentRunData();
+    return corruptedCharacter;
+  };
 });
 
 function showScreen(screenId) {
