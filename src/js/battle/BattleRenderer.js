@@ -13,7 +13,7 @@ export class BattleRenderer {
     units = [],
     currentCost = 0,
     maxCost = BATTLE_CONFIG.maxCost,
-    primaryAllyCost = 0,
+    lastSummonedCost = null,
     battleState = BATTLE_STATE.READY,
     noticeMessage = "",
     resultMessage = "",
@@ -28,7 +28,7 @@ export class BattleRenderer {
     this.renderHud({
       currentCost,
       maxCost,
-      primaryAllyCost,
+      lastSummonedCost,
       noticeMessage,
     });
     this.renderResultMessage(battleState, resultMessage);
@@ -188,7 +188,7 @@ export class BattleRenderer {
     ctx.fillRect(unit.x, unit.y - 13, barWidth * hpRatio, barHeight);
   }
 
-  renderHud({ currentCost, maxCost, primaryAllyCost, noticeMessage }) {
+  renderHud({ currentCost, maxCost, lastSummonedCost, noticeMessage }) {
     const { ctx } = this;
 
     ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
@@ -204,7 +204,7 @@ export class BattleRenderer {
     ctx.fillText(`Cost ${Math.floor(currentCost)} / ${maxCost}`, 30, 28);
 
     ctx.font = "14px Arial, Helvetica, sans-serif";
-    ctx.fillText(`Summon cost ${primaryAllyCost}`, 30, 54);
+    ctx.fillText(`Summon cost ${lastSummonedCost ?? "-"}`, 30, 54);
 
     if (noticeMessage) {
       ctx.fillText(this.truncateText(noticeMessage, 26), 30, 78);
