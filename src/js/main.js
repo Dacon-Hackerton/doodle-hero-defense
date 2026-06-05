@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const saveSlotButton = document.getElementById("saveSlotButton");
   const slotButtons = document.querySelectorAll(".character-slot");
   const battleSlotButtons = document.querySelectorAll(".battle-slot-card");
+  const shopColorButtons = document.querySelectorAll(".shop-color-item");
 
   battleSlotButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -47,8 +48,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
   let fallenCharacter = null;
+  let money = 10000;
+  let unlockedColors = ["#000000"];
 
   const hasSavedSlotData = await loadSavedRunData();
+
+  renderShopState({ money, unlockedColors });
 
   if (hasSavedSlotData) {
     showScreen("judgeScreen");
@@ -73,6 +78,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     currentJudgeManager.renderResult(currentCharacter);
     showScreen("judgeScreen");
+  });
+
+  shopColorButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const color = button.dataset.shopColor;
+      const price = Number(button.dataset.price);
+
+      if (unlockedColors.includes(color)) {
+          return;
+      }
+
+      if (money < price) {
+        alert("돈이 부족합니다.");
+        return;
+      }
+
+      money -= price;
+      unlockedColors.push(color);
+
+      renderShopState({ money, unlockedColors });
+      saveCurrentRunData();
+    });
   });
 
   bindClick(saveSlotButton, "saveSlotButton", () => {
@@ -308,10 +335,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         return false;
       }
 
-      currentStage = savedRundData.currentStage ?? 1;
+      currentStage = savedRunData.currentStage ?? 1;
       isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
       characterSlots = savedRunData.characterSlots ?? [null, null, null];
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
+      money = savedRunData.money ?? 10000;
+      unlockedColors = savedRunData.unlockedColors ?? ["#000000"];
 
       const hasSlotCharacter = characterSlots.some(
         (character) => character !== null,
@@ -340,7 +369,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("저장된 슬롯 데이터 불러오기 완료");
       return true;
     } catch (error) {
-      alert("먼저 캐릭터를 그리고 감정해주세요.");
+      console.warn("저장된 플레이 데이터를 불러오지 못했습니다.", error);
       return false;
     }
   }
@@ -353,6 +382,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         selectedSlotIndex,
         fallenCharacter,
         isStageClearReplacementMode,
+        money,
+        unlockedColors,
         savedAt: Date.now(),
       });
 
@@ -601,4 +632,38 @@ function bindClick(button, id, handler) {
   }
 
   button.addEventListener("click", handler);
+}
+
+function renderShopState({ money, unlockedColors }) {
+  const moneyText = document.getElementById("moneyText");
+  const shopColorButtons = document.querySelectorAll(".shop-color-item");
+  const colorButtons = document.querySelectorAll(".color-btn");
+
+  if (moneyText) {
+    moneyText.textContent = `보유 돈: ${money}원`;
+  }
+
+  colorButtons.forEach((button) => {
+    const color = button.dataset.color;
+    const isUnlocked = unlockedColors.includes(color);
+
+    button.classList.toggle("locked", !isUnlocked);
+    button.disabled = !isUnlocked;
+  });
+
+  shopColorButtons.forEach((button) => {
+    const color = button.dataset.shopColor;
+    const price = Number(button.dataset.price);
+    const isPurchased = unlockedColors.includes(color);
+
+    if (isPurchased) {
+      button.textContent = "구매 완료";
+      button.classList.add("purchased");
+      button.disabled = true;
+      return;
+    }
+
+    button.classList.remove("purchased");
+    button.disabled = money < price;
+  });
 }

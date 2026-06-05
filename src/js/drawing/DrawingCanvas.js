@@ -59,6 +59,10 @@ export class DrawingCanvas {
 
     this.colorButtons.forEach((button) => {
       button.addEventListener("click", () => {
+        if (button.disabled || button.classList.contains("locked")) {
+          return;
+        }
+
         this.selectColor(button);
       });
     });
