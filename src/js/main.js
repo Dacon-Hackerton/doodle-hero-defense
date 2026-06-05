@@ -96,6 +96,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const cardCooldowns = new Map();
   let cardCooldownFrameId = null;
   let lastCardCooldownTime = 0;
+  let toastTimeoutId = null;
   let currentStage = loadCurrentStage();
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
@@ -127,6 +128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   updateStartActions(hasSavedSlotData);
+  updateBattleStartButtonState();
 
   bindClick(startButton, "startButton", () => {
     showScreen("drawScreen");
@@ -139,6 +141,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindClick(newGameButton, "newGameButton", async () => {
     await startNewGame();
     updateStartActions(false);
+    updateBattleStartButtonState();
     showScreen("drawScreen");
   });
 
@@ -149,6 +152,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const hasSavedData = await loadSavedRunData();
     updateStartActions(hasSavedData);
+    updateBattleStartButtonState();
     showScreen("startScreen");
   });
 
@@ -159,6 +163,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     currentCharacter = null;
     drawingCanvas?.clearCanvas();
+    updateBattleStartButtonState();
     showScreen("drawScreen");
   });
 
@@ -174,6 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     currentJudgeManager.renderResult(currentCharacter);
+    updateComparisonVisibility();
     showScreen("judgeScreen");
   });
 
@@ -266,43 +272,74 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(saveSlotButton, "saveSlotButton", () => {
     if (!currentCharacter) {
-      alert("먼저 캐릭터를 그리고 감정해주세요.");
+      showToast("먼저 캐릭터를 그리고 감정해주세요.");
       return;
     }
 
     const emptySlotIndex = characterSlots.findIndex((slot) => slot === null);
 
-    let targetIndex = null;
-
     if (emptySlotIndex !== -1) {
-      targetIndex = emptySlotIndex;
-    } else {
-      if (selectedSlotIndex === null) {
-        alert("슬롯이 모두 찼습니다. 교체할 슬롯을 먼저 선택해주세요.");
-        return;
-      }
-
-      targetIndex = selectedSlotIndex;
+      registerCharacterToSlot(currentCharacter, emptySlotIndex);
+      return;
     }
 
+    if (selectedSlotIndex === null) {
+      showModal({
+        title: "교체할 슬롯 선택",
+        message: "슬롯이 모두 찼습니다. 교체할 슬롯을 먼저 선택해주세요.",
+      });
+      return;
+    }
+
+    replaceCharacterInSlot(currentCharacter, selectedSlotIndex);
+  });
+
+  function registerCharacterToSlot(character, targetIndex) {
+    characterSlots[targetIndex] = character;
+    selectedSlotIndex = targetIndex;
+    selectedCharacter = character;
+    currentCharacter = null;
+
+    renderCharacterSlots(characterSlots, selectedSlotIndex);
+    selectedJudgeManager.renderResult(selectedCharacter);
+    updateBattleStartButtonState();
+    updateComparisonVisibility();
+    saveCurrentRunData();
+
+    const filledCount = getFilledSlotCount();
+
+    if (filledCount < 3) {
+      showToast(`캐릭터 등록 완료 (${filledCount}/3). 다음 캐릭터를 그려주세요.`);
+      drawingCanvas?.clearCanvas();
+      showScreen("drawScreen");
+      return;
+    }
+
+    showToast("캐릭터 3명이 모두 등록되었습니다. 전투를 시작할 수 있습니다.");
+    showScreen("judgeScreen");
+  }
+
+  function replaceCharacterInSlot(character, targetIndex) {
     const replacedCharacter = characterSlots[targetIndex] ?? null;
 
     if (isStageClearReplacementMode && replacedCharacter) {
       fallenCharacter = markCharacterAsCorrupted(replacedCharacter, currentStage);
     }
 
-    characterSlots[targetIndex] = currentCharacter;
+    characterSlots[targetIndex] = character;
     selectedSlotIndex = targetIndex;
-    selectedCharacter = currentCharacter;
-
+    selectedCharacter = character;
+    currentCharacter = null;
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
     selectedJudgeManager.renderResult(selectedCharacter);
-
+    updateBattleStartButtonState();
+    updateComparisonVisibility();
     saveCurrentRunData();
-  });
+    showToast("캐릭터를 교체했습니다. 전투를 시작할 수 있습니다.");
+  }
 
   slotButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -314,6 +351,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!character) {
         selectedCharacter = null;
         renderCharacterSlots(characterSlots, selectedSlotIndex);
+        updateBattleStartButtonState();
+        updateComparisonVisibility();
         saveCurrentRunData();
         return;
       }
@@ -322,6 +361,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       renderCharacterSlots(characterSlots, selectedSlotIndex);
       selectedJudgeManager.renderResult(selectedCharacter);
+      updateBattleStartButtonState();
+      updateComparisonVisibility();
 
       saveCurrentRunData();
     });
@@ -329,11 +370,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(battleStartButton, "battleStartButton", () => {
     if (!areAllSlotsFilled(characterSlots)) {
-      alert("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
+      showToast("캐릭터 3명을 모두 등록해야 전투를 시작할 수 있습니다.");
       return;
     }
     if (isStageClearReplacementMode) {
-      alert("스테이지 클리어 후에는 새 캐릭터를 만들고 기존 슬롯 하나와 교체해야 전투를 시작할 수 있습니다.");
+      showToast("스테이지 클리어 후에는 새 캐릭터를 만들고 기존 슬롯 하나와 교체해야 합니다.");
       return;
     }
 
@@ -530,10 +571,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         selectedJudgeManager.renderResult(selectedCharacter);
       }
 
+      updateBattleStartButtonState();
+      updateComparisonVisibility();
+
       console.log("저장된 슬롯 데이터 불러오기 완료");
       return true;
     } catch (error) {
       console.warn("저장된 플레이 데이터를 불러오지 못했습니다.", error);
+      showToast("저장된 데이터를 불러오지 못했습니다.");
       return false;
     }
   }
@@ -577,6 +622,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await PlayerRunStorage.clearRunData();
     saveCurrentStage(currentStage);
     renderCharacterSlots(characterSlots, selectedSlotIndex);
+    updateBattleStartButtonState();
+    updateComparisonVisibility();
   }
 
   async function handleStageClear() {
@@ -596,6 +643,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderCharacterSlots(characterSlots, selectedSlotIndex);
 
     await saveCurrentRunData();
+    updateBattleStartButtonState();
+    updateComparisonVisibility();
     isHandlingStageClear = false;
   }
 
@@ -628,6 +677,112 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     overlay.hidden = true;
     overlay.classList.add("hidden");
+  }
+
+  function showToast(message) {
+    const toast = document.getElementById("toastMessage");
+
+    if (!toast) {
+      return;
+    }
+
+    if (toastTimeoutId) {
+      clearTimeout(toastTimeoutId);
+    }
+
+    toast.textContent = message;
+    toast.hidden = false;
+    toast.classList.remove("hidden");
+
+    toastTimeoutId = setTimeout(() => {
+      hideToast();
+    }, 2200);
+  }
+
+  function hideToast() {
+    const toast = document.getElementById("toastMessage");
+
+    if (!toast) {
+      return;
+    }
+
+    toast.hidden = true;
+    toast.classList.add("hidden");
+    toastTimeoutId = null;
+  }
+
+  function showModal({ title, message, actions = [] }) {
+    const modal = document.getElementById("appModal");
+    const modalTitle = document.getElementById("appModalTitle");
+    const modalMessage = document.getElementById("appModalMessage");
+    const modalActions = document.getElementById("appModalActions");
+
+    if (!modal || !modalTitle || !modalMessage || !modalActions) {
+      return;
+    }
+
+    modalTitle.textContent = title ?? "";
+    modalMessage.textContent = message ?? "";
+    modalActions.innerHTML = "";
+
+    const nextActions = actions.length > 0
+      ? actions
+      : [{ label: "확인", primary: true, onClick: hideModal }];
+
+    nextActions.forEach((action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = action.label;
+
+      if (action.primary) {
+        button.classList.add("primary-btn");
+      }
+
+      button.addEventListener("click", () => {
+        action.onClick?.();
+      });
+
+      modalActions.appendChild(button);
+    });
+
+    modal.hidden = false;
+    modal.classList.remove("hidden");
+  }
+
+  function hideModal() {
+    const modal = document.getElementById("appModal");
+
+    if (!modal) {
+      return;
+    }
+
+    modal.hidden = true;
+    modal.classList.add("hidden");
+  }
+
+  function updateBattleStartButtonState() {
+    if (!battleStartButton) {
+      return;
+    }
+
+    battleStartButton.disabled = getFilledSlotCount() < 3;
+  }
+
+  function updateComparisonVisibility() {
+    const selectedPreviewImage = document.getElementById("selectedPreviewImage");
+    const selectedResultCard = selectedPreviewImage?.closest(".result-card");
+
+    if (!selectedResultCard) {
+      return;
+    }
+
+    const shouldShowComparison = getFilledSlotCount() >= 3;
+    selectedResultCard.hidden = !shouldShowComparison;
+    selectedResultCard.classList.toggle("hidden", !shouldShowComparison);
+  }
+
+  function getFilledSlotCount() {
+    return characterSlots.filter(Boolean).length;
   }
 
   function markCharacterAsCorrupted(character, stage) {
