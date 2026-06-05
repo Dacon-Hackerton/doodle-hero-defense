@@ -72,6 +72,15 @@ button:hover {
   background-color: #e5e7eb;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:disabled:hover {
+  background-color: #ffffff;
+}
+
 .primary-btn {
   background-color: #2563eb;
   border-color: #2563eb;
@@ -518,6 +527,68 @@ input {
 
 .battle-slot-card.cooldown .battle-slot-cooldown {
   display: flex;
+}
+
+.toast-message {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 1200;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border-radius: 999px;
+  background-color: #111827;
+  color: #ffffff;
+  font-weight: bold;
+  line-height: 1.4;
+  text-align: center;
+  transform: translateX(-50%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+.app-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgba(15, 23, 42, 0.66);
+}
+
+.app-modal.hidden {
+  display: none !important;
+}
+
+.app-modal-panel {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 2px solid #111827;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #111827;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+}
+
+.app-modal-panel h2 {
+  margin: 0 0 10px;
+  font-size: 26px;
+}
+
+.app-modal-panel p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.app-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  flex-wrap: wrap;
 }
 
 .battle-result-overlay {
