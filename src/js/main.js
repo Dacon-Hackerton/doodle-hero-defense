@@ -1,5 +1,3 @@
-import { saveInvasionCharacterToFirebase,
-  loadRandomInvasionCharacterFromFirebase } from "./storage/firebaseManager.js";
 import { BattleManager } from "./battle/BattleManager.js";
 import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
@@ -13,47 +11,6 @@ import {
 import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
 const DEFAULT_CARD_COOLDOWN = 3.0;
-const STAGE_CLEAR_REWARD = 5000;
-const INVASION_SAVE_CHANCE = 1;
-
-const INK_TANK_CONFIG = {
-  1: {
-    ratio: 0.5,
-    nextPrice: 2000,
-  },
-  2: {
-    ratio: 0.65,
-    nextPrice: 4000,
-  },
-  3: {
-    ratio: 0.8,
-    nextPrice: null,
-  },
-};
-
-const MAX_INK_TANK_LEVEL = 3;
-
-
-const CANVAS_CONFIG = {
-  1: {
-    width: 400,
-    height: 400,
-    nextPrice: 3000,
-  },
-  2: {
-    width: 500,
-    height: 500,
-    nextPrice: 6000,
-  },
-  3: {
-    width: 600,
-    height: 600,
-    nextPrice: null,
-  },
-};
-
-const MAX_CANVAS_LEVEL = 3;
-
 
 document.addEventListener("DOMContentLoaded", async () => {
   const drawingCanvas = createDrawingCanvas();
@@ -78,9 +35,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const saveSlotButton = document.getElementById("saveSlotButton");
   const slotButtons = document.querySelectorAll(".character-slot");
   const battleSlotButtons = document.querySelectorAll(".battle-slot-card");
-  const shopColorButtons = document.querySelectorAll(".shop-color-item");
-  const inkTankUpgradeButton = document.getElementById("inkTankUpgradeButton");
-  const canvasUpgradeButton = document.getElementById("canvasUpgradeButton");
 
   battleSlotButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -96,32 +50,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   let selectedSlotIndex = null;
   let characterSlots = [null, null, null];
   let battleManager = null;
-  let invasionCharacter = null;
   const cardCooldowns = new Map();
   let cardCooldownFrameId = null;
   let lastCardCooldownTime = 0;
-  let toastTimeoutId = null;
   let currentStage = loadCurrentStage();
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
   let fallenCharacter = null;
-  let money = 10000;
-  let unlockedColors = ["#000000"];
-  let inkTankLevel = 1;
-  let canvasLevel = 1;
 
   const hasSavedSlotData = await loadSavedRunData();
-
-  renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
-
-  applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
-
-  renderShopState({
-    money,
-    unlockedColors,
-    inkTankLevel,
-    canvasLevel,
-  });
 
   if (!hasSavedSlotData) {
     currentStage = 1;
@@ -129,7 +66,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   updateStartActions(hasSavedSlotData);
-  updateBattleStartButtonState();
   showScreen("startScreen");
 
   bindClick(startButton, "startButton", () => {
@@ -143,7 +79,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindClick(newGameButton, "newGameButton", async () => {
     await startNewGame();
     updateStartActions(false);
-    updateBattleStartButtonState();
     showScreen("drawScreen");
   });
 
@@ -154,7 +89,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const hasSavedData = await loadSavedRunData();
     updateStartActions(hasSavedData);
-    updateBattleStartButtonState();
     showScreen("startScreen");
   });
 
@@ -164,13 +98,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     stopCardCooldownLoop();
 
     currentCharacter = null;
-    clearCurrentResult();
     drawingCanvas?.clearCanvas();
-    updateBattleStartButtonState();
     showScreen("drawScreen");
   });
 
-  bindClick(judgeButton, "judgeButton", async () => {
+  bindClick(judgeButton, "judgeButton", () => {
     if (!drawingCanvas || !currentJudgeManager) {
       return;
     }
@@ -182,185 +114,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     currentJudgeManager.renderResult(currentCharacter);
-    updateComparisonVisibility();
     showScreen("judgeScreen");
-
-    await trySaveAsInvasionCharacter(currentCharacter);
   });
-
-  shopColorButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const color = button.dataset.shopColor;
-      const price = Number(button.dataset.price);
-
-      if (unlockedColors.includes(color)) {
-          return;
-      }
-
-      if (money < price) {
-        showToast("돈이 부족합니다.");
-        return;
-      }
-
-      money -= price;
-      unlockedColors.push(color);
-
-      renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
-      saveCurrentRunData();
-    });
-  });
-
-  bindClick(inkTankUpgradeButton, "inkTankUpgradeButton", () => {
-    const currentConfig = INK_TANK_CONFIG[inkTankLevel];
-    const nextPrice = currentConfig.nextPrice;
-
-    if (inkTankLevel >= MAX_INK_TANK_LEVEL || nextPrice === null) {
-      showToast("이미 잉크통이 최대 레벨입니다.");
-      return;
-    }
-
-    if (money < nextPrice) {
-      showToast("돈이 부족합니다.");
-      return;
-    }
-
-    money -= nextPrice;
-    inkTankLevel += 1;
-
-    if (drawingCanvas) {
-      drawingCanvas.setMaxInk(
-        getMaxInkByInkTankLevel(drawingCanvas.canvas, inkTankLevel),
-      );
-    }
-
-    renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
-    saveCurrentRunData();
-  });
-
-  bindClick(canvasUpgradeButton, "canvasUpgradeButton", () => {
-    const currentConfig = getCanvasConfig(canvasLevel);
-    const nextPrice = currentConfig.nextPrice;
-
-    if (canvasLevel >= MAX_CANVAS_LEVEL || nextPrice === null) {
-      showToast("이미 캔버스가 최대 레벨입니다.");
-      return;
-    }
-
-    if (money < nextPrice) {
-      showToast("돈이 부족합니다.");
-      return;
-    }
-    showModal({
-      title: "캔버스 확장",
-      message: "캔버스를 확장하면 현재 그리던 그림이 초기화됩니다. 그래도 확장할까요?",
-      actions: [
-        {
-          label: "취소",
-          onClick: hideModal,
-        },
-        {
-          label: "확장하기",
-          primary: true,
-          onClick: () => {
-            hideModal();
-            upgradeCanvas(nextPrice);
-          },
-        },
-      ],
-    });
-  });
-
-
-  function upgradeCanvas(price) {
-    money -= price;
-    canvasLevel += 1;
-    currentCharacter = null;
-    clearCurrentResult();
-
-    applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
-
-    renderShopState({
-      money,
-      unlockedColors,
-      inkTankLevel,
-      canvasLevel,
-    });
-
-    saveCurrentRunData();
-  }
 
   bindClick(saveSlotButton, "saveSlotButton", () => {
     if (!currentCharacter) {
-      showToast("먼저 캐릭터를 그리고 감정해주세요.");
+      alert("먼저 캐릭터를 그리고 감정해주세요.");
       return;
     }
 
     const emptySlotIndex = characterSlots.findIndex((slot) => slot === null);
 
+    let targetIndex = null;
+
     if (emptySlotIndex !== -1) {
-      registerCharacterToSlot(currentCharacter, emptySlotIndex);
-      return;
+      targetIndex = emptySlotIndex;
+    } else {
+      if (selectedSlotIndex === null) {
+        alert("슬롯이 모두 찼습니다. 교체할 슬롯을 먼저 선택해주세요.");
+        return;
+      }
+
+      targetIndex = selectedSlotIndex;
     }
 
-    if (selectedSlotIndex === null) {
-      showModal({
-        title: "교체할 슬롯 선택",
-        message: "슬롯이 모두 찼습니다. 교체할 슬롯을 먼저 선택해주세요.",
-      });
-      return;
-    }
-
-    replaceCharacterInSlot(currentCharacter, selectedSlotIndex);
-  });
-
-  function registerCharacterToSlot(character, targetIndex) {
-    characterSlots[targetIndex] = character;
-    selectedSlotIndex = targetIndex;
-    selectedCharacter = character;
-    currentCharacter = null;
-    clearCurrentResult();
-
-    renderCharacterSlots(characterSlots, selectedSlotIndex);
-    selectedJudgeManager.renderResult(selectedCharacter);
-    updateBattleStartButtonState();
-    updateComparisonVisibility();
-    saveCurrentRunData();
-
-    const filledCount = getFilledSlotCount();
-
-    if (filledCount < 3) {
-      showToast(`캐릭터 등록 완료 (${filledCount}/3). 다음 캐릭터를 그려주세요.`);
-      drawingCanvas?.clearCanvas();
-      showScreen("drawScreen");
-      return;
-    }
-
-    showToast("캐릭터 3명이 모두 등록되었습니다. 전투를 시작할 수 있습니다.");
-    showScreen("judgeScreen");
-  }
-
-  function replaceCharacterInSlot(character, targetIndex) {
     const replacedCharacter = characterSlots[targetIndex] ?? null;
 
     if (isStageClearReplacementMode && replacedCharacter) {
       fallenCharacter = markCharacterAsCorrupted(replacedCharacter, currentStage);
     }
 
-    characterSlots[targetIndex] = character;
+    characterSlots[targetIndex] = currentCharacter;
     selectedSlotIndex = targetIndex;
-    selectedCharacter = character;
-    currentCharacter = null;
-    clearCurrentResult();
+    selectedCharacter = currentCharacter;
+
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
     selectedJudgeManager.renderResult(selectedCharacter);
-    updateBattleStartButtonState();
-    updateComparisonVisibility();
+
     saveCurrentRunData();
-    showToast("캐릭터를 교체했습니다. 전투를 시작할 수 있습니다.");
-  }
+  });
 
   slotButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -372,8 +167,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!character) {
         selectedCharacter = null;
         renderCharacterSlots(characterSlots, selectedSlotIndex);
-        updateBattleStartButtonState();
-        updateComparisonVisibility();
         saveCurrentRunData();
         return;
       }
@@ -382,27 +175,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       renderCharacterSlots(characterSlots, selectedSlotIndex);
       selectedJudgeManager.renderResult(selectedCharacter);
-      updateBattleStartButtonState();
-      updateComparisonVisibility();
 
       saveCurrentRunData();
     });
   });
 
-  bindClick(battleStartButton, "battleStartButton", async () => {
+  bindClick(battleStartButton, "battleStartButton", () => {
     if (!areAllSlotsFilled(characterSlots)) {
-      showToast("캐릭터 3명을 모두 등록해야 전투를 시작할 수 있습니다.");
+      alert("캐릭터 슬롯 3개를 모두 채워야 전투를 시작할 수 있습니다.");
       return;
     }
     if (isStageClearReplacementMode) {
-      showToast("스테이지 클리어 후에는 새 캐릭터를 만들고 기존 슬롯 하나와 교체해야 합니다.");
+      alert("스테이지 클리어 후에는 새 캐릭터를 만들고 기존 슬롯 하나와 교체해야 전투를 시작할 수 있습니다.");
       return;
     }
 
     showScreen("battleScreen");
     hideBattleResult();
-
-    await loadAndStoreInvasionCharacter();
 
     if (!battleManager) {
       battleManager = new BattleManager("battleCanvas");
@@ -447,7 +236,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindClick(backDrawButton, "backDrawButton", () => {
     currentCharacter = null;
-    clearCurrentResult();
     showScreen("drawScreen");
   });
 
@@ -562,41 +350,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         return false;
       }
 
-      const savedCharacterSlots = savedRunData.characterSlots ?? [null, null, null];
+      currentStage = savedRunData.currentStage ?? loadCurrentStage();
+      isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
+      characterSlots = savedRunData.characterSlots ?? [null, null, null];
+      selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
 
-      const hasSlotCharacter = savedCharacterSlots.some(
+      const hasSlotCharacter = characterSlots.some(
         (character) => character !== null,
       );
 
       if (!hasSlotCharacter) {
-        console.log("저장된 슬롯 캐릭터가 없습니다. 저장 데이터를 초기화합니다.");
-
-        await PlayerRunStorage.clearRunData();
-
-        currentStage = 1;
-        characterSlots = [null, null, null];
-        selectedSlotIndex = null;
-        selectedCharacter = null;
-        fallenCharacter = null;
-        isStageClearReplacementMode = false;
-        isHandlingStageClear = false;
-
-        money = 10000;
-        unlockedColors = ["#000000"];
-        inkTankLevel = 1;
-        canvasLevel = 1;
-
+        console.log("저장된 슬롯 캐릭터가 없습니다.");
         return false;
       }
-
-      currentStage = savedRunData.currentStage ?? loadCurrentStage();
-      isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
-      characterSlots = savedCharacterSlots;
-      selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
-      money = savedRunData.money ?? 10000;
-      unlockedColors = savedRunData.unlockedColors ?? ["#000000"];
-      inkTankLevel = savedRunData.inkTankLevel ?? 1;
-      canvasLevel = savedRunData.canvasLevel ?? 1;
 
       if (selectedSlotIndex === null || !characterSlots[selectedSlotIndex]) {
         selectedSlotIndex = characterSlots.findIndex(
@@ -613,14 +379,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         selectedJudgeManager.renderResult(selectedCharacter);
       }
 
-      updateBattleStartButtonState();
-      updateComparisonVisibility();
-
       console.log("저장된 슬롯 데이터 불러오기 완료");
       return true;
     } catch (error) {
-      console.warn("저장된 플레이 데이터를 불러오지 못했습니다.", error);
-      showToast("저장된 데이터를 불러오지 못했습니다.");
+      alert("먼저 캐릭터를 그리고 감정해주세요.");
       return false;
     }
   }
@@ -633,10 +395,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         selectedSlotIndex,
         fallenCharacter,
         isStageClearReplacementMode,
-        money,
-        unlockedColors,
-        inkTankLevel,
-        canvasLevel,
         savedAt: Date.now(),
       });
       saveCurrentStage(currentStage);
@@ -644,36 +402,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("슬롯 데이터 저장 완료");
     } catch (error) {
       console.warn("슬롯 데이터를 저장하지 못했습니다.", error);
-    }
-  }
-
-  async function loadAndStoreInvasionCharacter() {
-  invasionCharacter = await loadRandomInvasionCharacterFromFirebase();
-
-  if (!invasionCharacter) {
-    console.log("저장할 난입 캐릭터가 없습니다.");
-    return null;
-  }
-
-  console.log("난입 캐릭터 저장 완료:", invasionCharacter);
-  return invasionCharacter;
-}
-
-  async function trySaveAsInvasionCharacter(character) {
-    if (!character) {
-      return;
-    }
-
-    if (Math.random() > INVASION_SAVE_CHANCE) {
-      console.log("난입 캐릭터 저장 미당첨");
-      return;
-    }
-
-    const firebaseId = await saveInvasionCharacterToFirebase(character);
-
-    if (firebaseId) {
-      character.invasionFirebaseId = firebaseId;
-      console.log("난입 캐릭터 저장 완료:", firebaseId);
     }
   }
 
@@ -689,31 +417,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
     fallenCharacter = null;
-    invasionCharacter = null;
     cardCooldowns.clear();
-    clearCurrentResult();
-
-    money = 10000;
-    unlockedColors = ["#000000"];
-    inkTankLevel = 1;
-    canvasLevel = 1;
-
-    applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
-
-    renderShopState({
-      money,
-      unlockedColors,
-      inkTankLevel,
-      canvasLevel,
-    });
-
-    drawingCanvas?.clearCanvas();
 
     await PlayerRunStorage.clearRunData();
     saveCurrentStage(currentStage);
     renderCharacterSlots(characterSlots, selectedSlotIndex);
-    updateBattleStartButtonState();
-    updateComparisonVisibility();
   }
 
   async function handleStageClear() {
@@ -722,27 +430,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     isHandlingStageClear = true;
-    money += STAGE_CLEAR_REWARD;
     currentStage += 1;
     saveCurrentStage(currentStage);
     currentCharacter = null;
-    clearCurrentResult();
     selectedCharacter = null;
     selectedSlotIndex = null;
     isStageClearReplacementMode = true;
 
-    renderShopState({
-      money,
-      unlockedColors,
-      inkTankLevel,
-      canvasLevel,
-    });
-
     renderCharacterSlots(characterSlots, selectedSlotIndex);
 
     await saveCurrentRunData();
-    updateBattleStartButtonState();
-    updateComparisonVisibility();
     isHandlingStageClear = false;
   }
 
@@ -777,115 +474,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     overlay.classList.add("hidden");
   }
 
-  function showToast(message) {
-    const toast = document.getElementById("toastMessage");
-    if (!toast) {
-      return;
-    }
-
-    if (toastTimeoutId) {
-      clearTimeout(toastTimeoutId);
-    }
-
-    toast.textContent = message;
-    toast.hidden = false;
-    toast.classList.remove("hidden");
-
-    toastTimeoutId = setTimeout(() => {
-      hideToast();
-    }, 2200);
-  }
-
-  function hideToast() {
-    const toast = document.getElementById("toastMessage");
-
-    if (!toast) {
-      return;
-    }
-
-    toast.hidden = true;
-    toast.classList.add("hidden");
-    toastTimeoutId = null;
-  }
-
-  function showModal({ title, message, actions = [] }) {
-    const modal = document.getElementById("appModal");
-    const modalTitle = document.getElementById("appModalTitle");
-    const modalMessage = document.getElementById("appModalMessage");
-    const modalActions = document.getElementById("appModalActions");
-
-    if (!modal || !modalTitle || !modalMessage || !modalActions) {
-      return;
-    }
-
-    modalTitle.textContent = title ?? "";
-    modalMessage.textContent = message ?? "";
-    modalActions.innerHTML = "";
-
-    const nextActions = actions.length > 0
-      ? actions
-      : [{ label: "확인", primary: true, onClick: hideModal }];
-
-    nextActions.forEach((action) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = action.label;
-
-      if (action.primary) {
-        button.classList.add("primary-btn");
-      }
-
-      button.addEventListener("click", () => {
-        action.onClick?.();
-      });
-
-      modalActions.appendChild(button);
-    });
-
-    modal.hidden = false;
-    modal.classList.remove("hidden");
-  }
-
-  function hideModal() {
-    const modal = document.getElementById("appModal");
-
-    if (!modal) {
-      return;
-    }
-
-    modal.hidden = true;
-    modal.classList.add("hidden");
-  }
-
-  function updateBattleStartButtonState() {
-    if (!battleStartButton) {
-      return;
-    }
-
-    battleStartButton.disabled = getFilledSlotCount() < 3;
-  }
-
-  function updateComparisonVisibility() {
-    const selectedPreviewImage = document.getElementById("selectedPreviewImage");
-    const selectedResultCard = selectedPreviewImage?.closest(".result-card");
-
-    if (!selectedResultCard) {
-      return;
-    }
-
-    const shouldShowComparison = getFilledSlotCount() >= 3;
-    selectedResultCard.hidden = !shouldShowComparison;
-    selectedResultCard.classList.toggle("hidden", !shouldShowComparison);
-  }
-
-  function clearCurrentResult() {
-    currentJudgeManager?.renderResult(null);
-  }
-
-  function getFilledSlotCount() {
-    return characterSlots.filter(Boolean).length;
-  }
-
   function markCharacterAsCorrupted(character, stage) {
     const corruptedCharacter = createCorruptedCharacter(character, stage);
     addCorruptedCharacter(corruptedCharacter);
@@ -901,18 +489,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     saveCurrentRunData();
     return corruptedCharacter;
-  };
-
-  window.__debugLoadRandomInvasionCharacter = async () => {
-    const character = await loadRandomInvasionCharacterFromFirebase();
-
-    if (!character) {
-      console.log("불러온 난입 캐릭터 없음");
-      return null;
-    }
-
-    console.log("테스트용 랜덤 난입 캐릭터:", character);
-    return character;
   };
 });
 
@@ -972,8 +548,6 @@ function createDrawingCanvas() {
     return null;
   }
 
-  const maxInk = getMaxInkByInkTankLevel(canvas, 1);
-
   const drawingCanvas = new DrawingCanvas({
     canvas,
     colorButtons: document.querySelectorAll(".color-btn"),
@@ -983,7 +557,7 @@ function createDrawingCanvas() {
     undoButton,
     clearButton,
     inkText,
-    maxInk,
+    maxInk: 128000,
   });
 
   drawingCanvas.init();
@@ -1142,117 +716,4 @@ function bindClick(button, id, handler) {
   }
 
   button.addEventListener("click", handler);
-}
-
-function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel = 1, }) {
-  const moneyText = document.getElementById("moneyText");
-  const shopColorButtons = document.querySelectorAll(".shop-color-item");
-  const colorButtons = document.querySelectorAll(".color-btn");
-  const inkTankUpgradeButton = document.getElementById("inkTankUpgradeButton");
-  const canvasUpgradeButton = document.getElementById("canvasUpgradeButton");
-
-  if (moneyText) {
-    moneyText.textContent = `보유 돈: ${money}원`;
-  }
-
-  colorButtons.forEach((button) => {
-    const color = button.dataset.color;
-    const isUnlocked = unlockedColors.includes(color);
-
-    button.classList.toggle("locked", !isUnlocked);
-    button.disabled = !isUnlocked;
-  });
-
-  shopColorButtons.forEach((button) => {
-    const color = button.dataset.shopColor;
-    const price = Number(button.dataset.price);
-    const isPurchased = unlockedColors.includes(color);
-
-    if (isPurchased) {
-      button.textContent = "구매 완료";
-      button.classList.add("purchased");
-      button.disabled = true;
-      return;
-    }
-
-    button.classList.remove("purchased");
-    button.disabled = money < price;
-  });
-
-  if (!canvasUpgradeButton) {
-    return;
-  }
-
-  const canvasConfig = getCanvasConfig(canvasLevel);
-  const nextCanvasLevel = canvasLevel + 1;
-  const nextCanvasPrice = canvasConfig.nextPrice;
-
-  canvasUpgradeButton.classList.remove("max-level");
-
-  if (canvasLevel >= MAX_CANVAS_LEVEL || nextCanvasPrice === null) {
-    canvasUpgradeButton.textContent = `캔버스 Lv.${canvasLevel} / 최대 레벨`;
-    canvasUpgradeButton.classList.add("max-level");
-    canvasUpgradeButton.disabled = true;
-  } else {
-    canvasUpgradeButton.textContent =
-      `캔버스 확장 Lv.${nextCanvasLevel} - ${nextCanvasPrice}원`;
-    canvasUpgradeButton.disabled = money < nextCanvasPrice;
-  }
-
-
-  if (!inkTankUpgradeButton) {
-    return;
-  }
-
-  const inkTankConfig = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
-  const nextInkTankLevel = inkTankLevel + 1;
-  const nextInkTankPrice = inkTankConfig.nextPrice;
-
-  inkTankUpgradeButton.classList.remove("max-level");
-
-  if (inkTankLevel >= MAX_INK_TANK_LEVEL || nextInkTankPrice === null) {
-    inkTankUpgradeButton.textContent = `잉크통 Lv.${inkTankLevel} / 최대 레벨`;
-    inkTankUpgradeButton.classList.add("max-level");
-    inkTankUpgradeButton.disabled = true;
-    return;
-  }
-
-  inkTankUpgradeButton.textContent =
-    `잉크통 업그레이드 Lv.${nextInkTankLevel} - ${nextInkTankPrice}원`;
-  inkTankUpgradeButton.disabled = money < nextInkTankPrice;
-}
-
-function getMaxInkBySize(width, height, inkTankLevel) {
-  const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
-
-  return Math.floor(width * height * config.ratio);
-}
-
-function getCanvasConfig(canvasLevel) {
-  return CANVAS_CONFIG[canvasLevel] ?? CANVAS_CONFIG[1];
-}
-
-function applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel) {
-  if (!drawingCanvas) {
-    return;
-  }
-
-  const canvasConfig = getCanvasConfig(canvasLevel);
-  const maxInk = getMaxInkBySize(
-    canvasConfig.width,
-    canvasConfig.height,
-    inkTankLevel,
-  );
-
-  drawingCanvas.setCanvasSize(
-    canvasConfig.width,
-    canvasConfig.height,
-    maxInk,
-  );
-}
-
-function getMaxInkByInkTankLevel(canvas, inkTankLevel) {
-  const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
-
-  return Math.floor(canvas.width * canvas.height * config.ratio);
 }
