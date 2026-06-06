@@ -1,3 +1,5 @@
+import { saveInvasionCharacterToFirebase,
+  loadRandomInvasionCharacterFromFirebase } from "./storage/firebaseManager.js";
 import { BattleManager } from "./battle/BattleManager.js";
 import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
@@ -12,6 +14,7 @@ import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
 const DEFAULT_CARD_COOLDOWN = 3.0;
 const STAGE_CLEAR_REWARD = 5000;
+const INVASION_SAVE_CHANCE = 1;
 
 const INK_TANK_CONFIG = {
   1: {
@@ -93,6 +96,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let selectedSlotIndex = null;
   let characterSlots = [null, null, null];
   let battleManager = null;
+  let invasionCharacter = null;
   const cardCooldowns = new Map();
   let cardCooldownFrameId = null;
   let lastCardCooldownTime = 0;
@@ -166,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     showScreen("drawScreen");
   });
 
-  bindClick(judgeButton, "judgeButton", () => {
+  bindClick(judgeButton, "judgeButton", async () => {
     if (!drawingCanvas || !currentJudgeManager) {
       return;
     }
@@ -180,6 +184,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentJudgeManager.renderResult(currentCharacter);
     updateComparisonVisibility();
     showScreen("judgeScreen");
+
+    await trySaveAsInvasionCharacter(currentCharacter);
   });
 
   shopColorButtons.forEach((button) => {
@@ -383,7 +389,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  bindClick(battleStartButton, "battleStartButton", () => {
+  bindClick(battleStartButton, "battleStartButton", async () => {
     if (!areAllSlotsFilled(characterSlots)) {
       showToast("캐릭터 3명을 모두 등록해야 전투를 시작할 수 있습니다.");
       return;
@@ -395,6 +401,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     showScreen("battleScreen");
     hideBattleResult();
+
+    await loadAndStoreInvasionCharacter();
 
     if (!battleManager) {
       battleManager = new BattleManager("battleCanvas");
@@ -554,23 +562,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         return false;
       }
 
+      const savedCharacterSlots = savedRunData.characterSlots ?? [null, null, null];
+
+      const hasSlotCharacter = savedCharacterSlots.some(
+        (character) => character !== null,
+      );
+
+      if (!hasSlotCharacter) {
+        console.log("저장된 슬롯 캐릭터가 없습니다. 저장 데이터를 초기화합니다.");
+
+        await PlayerRunStorage.clearRunData();
+
+        currentStage = 1;
+        characterSlots = [null, null, null];
+        selectedSlotIndex = null;
+        selectedCharacter = null;
+        fallenCharacter = null;
+        isStageClearReplacementMode = false;
+        isHandlingStageClear = false;
+
+        money = 10000;
+        unlockedColors = ["#000000"];
+        inkTankLevel = 1;
+        canvasLevel = 1;
+
+        return false;
+      }
+
       currentStage = savedRunData.currentStage ?? loadCurrentStage();
       isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
-      characterSlots = savedRunData.characterSlots ?? [null, null, null];
+      characterSlots = savedCharacterSlots;
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
       money = savedRunData.money ?? 10000;
       unlockedColors = savedRunData.unlockedColors ?? ["#000000"];
       inkTankLevel = savedRunData.inkTankLevel ?? 1;
       canvasLevel = savedRunData.canvasLevel ?? 1;
-
-      const hasSlotCharacter = characterSlots.some(
-        (character) => character !== null,
-      );
-
-      if (!hasSlotCharacter) {
-        console.log("저장된 슬롯 캐릭터가 없습니다.");
-        return false;
-      }
 
       if (selectedSlotIndex === null || !characterSlots[selectedSlotIndex]) {
         selectedSlotIndex = characterSlots.findIndex(
@@ -621,6 +647,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function loadAndStoreInvasionCharacter() {
+  invasionCharacter = await loadRandomInvasionCharacterFromFirebase();
+
+  if (!invasionCharacter) {
+    console.log("저장할 난입 캐릭터가 없습니다.");
+    return null;
+  }
+
+  console.log("난입 캐릭터 저장 완료:", invasionCharacter);
+  return invasionCharacter;
+}
+
+  async function trySaveAsInvasionCharacter(character) {
+    if (!character) {
+      return;
+    }
+
+    if (Math.random() > INVASION_SAVE_CHANCE) {
+      console.log("난입 캐릭터 저장 미당첨");
+      return;
+    }
+
+    const firebaseId = await saveInvasionCharacterToFirebase(character);
+
+    if (firebaseId) {
+      character.invasionFirebaseId = firebaseId;
+      console.log("난입 캐릭터 저장 완료:", firebaseId);
+    }
+  }
+
   async function startNewGame() {
     battleManager?.stop();
     stopCardCooldownLoop();
@@ -633,8 +689,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
     fallenCharacter = null;
+    invasionCharacter = null;
     cardCooldowns.clear();
     clearCurrentResult();
+
+    money = 10000;
+    unlockedColors = ["#000000"];
+    inkTankLevel = 1;
+    canvasLevel = 1;
+
+    applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
+
+    renderShopState({
+      money,
+      unlockedColors,
+      inkTankLevel,
+      canvasLevel,
+    });
+
+    drawingCanvas?.clearCanvas();
 
     await PlayerRunStorage.clearRunData();
     saveCurrentStage(currentStage);
@@ -657,6 +730,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     selectedCharacter = null;
     selectedSlotIndex = null;
     isStageClearReplacementMode = true;
+
+    renderShopState({
+      money,
+      unlockedColors,
+      inkTankLevel,
+      canvasLevel,
+    });
 
     renderCharacterSlots(characterSlots, selectedSlotIndex);
 
@@ -821,6 +901,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     saveCurrentRunData();
     return corruptedCharacter;
+  };
+
+  window.__debugLoadRandomInvasionCharacter = async () => {
+    const character = await loadRandomInvasionCharacterFromFirebase();
+
+    if (!character) {
+      console.log("불러온 난입 캐릭터 없음");
+      return null;
+    }
+
+    console.log("테스트용 랜덤 난입 캐릭터:", character);
+    return character;
   };
 });
 
