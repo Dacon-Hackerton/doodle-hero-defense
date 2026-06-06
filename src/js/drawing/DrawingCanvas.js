@@ -8,7 +8,7 @@ export class DrawingCanvas {
     undoButton,
     clearButton,
     inkText,
-    maxInk = 80000,
+    maxInk = 128000,
   }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -27,9 +27,9 @@ export class DrawingCanvas {
 
     this.undoStack = [];
 
-    this.maxInk = Math.max(1, Math.floor(maxInk));
+    this.maxInk = maxInk;
     this.inkUsed = 0;
-    this.inkRemain = this.maxInk;
+    this.inkRemain = maxInk;
 
     this.lastPoint = null;
     this.hasStrokeChanged = false;
@@ -45,8 +45,8 @@ export class DrawingCanvas {
     this.ctx.lineJoin = "round";
     this.canvas.style.touchAction = "none";
 
-    this.refreshInkUsage();
     this.saveCanvasState();
+    this.updateInkUI();
     this.bindEvents();
   }
 
@@ -59,10 +59,6 @@ export class DrawingCanvas {
 
     this.colorButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        if (button.disabled || button.classList.contains("locked")) {
-          return;
-        }
-
         this.selectColor(button);
       });
     });
@@ -124,7 +120,7 @@ export class DrawingCanvas {
       (button) => button.dataset.color === "#000000",
     );
 
-    if (blackButton && !blackButton.disabled) {
+    if (blackButton) {
       this.selectColor(blackButton);
     }
   }
@@ -135,8 +131,6 @@ export class DrawingCanvas {
     if (!this.isPointInsideCanvas(event)) {
       return;
     }
-
-    this.refreshInkUsage();
 
     if (!this.isEraser && this.inkRemain <= 0) {
       return;
@@ -177,12 +171,21 @@ export class DrawingCanvas {
       return;
     }
 
-    const beforeImageData = this.ctx.getImageData(
-      0,
-      0,
-      this.canvas.width,
-      this.canvas.height,
-    );
+    const inkCost = this.calculateInkCost(distance);
+
+    if (!this.isEraser) {
+      if (this.inkRemain <= 0) {
+        this.stopDrawing(event);
+        return;
+      }
+
+      if (inkCost > this.inkRemain) {
+        this.stopDrawing(event);
+        return;
+      }
+
+      this.useInk(inkCost);
+    }
 
     this.ctx.lineWidth = this.brushSize;
 
@@ -197,15 +200,6 @@ export class DrawingCanvas {
     this.ctx.stroke();
     this.ctx.globalCompositeOperation = "source-over";
 
-    this.refreshInkUsage();
-
-    if (!this.isEraser && this.inkUsed > this.maxInk) {
-      this.ctx.putImageData(beforeImageData, 0, 0);
-      this.refreshInkUsage();
-      this.stopDrawing(event);
-      return;
-    }
-
     this.lastPoint = position;
     this.hasStrokeChanged = true;
   }
@@ -219,8 +213,6 @@ export class DrawingCanvas {
     this.lastPoint = null;
     this.ctx.closePath();
 
-    this.refreshInkUsage();
-
     if (this.hasStrokeChanged) {
       this.saveCanvasState();
     }
@@ -230,8 +222,12 @@ export class DrawingCanvas {
 
   clearCanvas() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.refreshInkUsage();
+
+    this.inkUsed = 0;
+    this.inkRemain = this.maxInk;
+
     this.saveCanvasState();
+    this.updateInkUI();
   }
 
   undoCanvas() {
@@ -244,7 +240,11 @@ export class DrawingCanvas {
     const previousState = this.undoStack[this.undoStack.length - 1];
 
     this.ctx.putImageData(previousState.imageData, 0, 0);
-    this.refreshInkUsage();
+
+    this.inkUsed = previousState.inkUsed;
+    this.inkRemain = previousState.inkRemain;
+
+    this.updateInkUI();
   }
 
   saveCanvasState() {
@@ -257,6 +257,8 @@ export class DrawingCanvas {
 
     this.undoStack.push({
       imageData,
+      inkUsed: this.inkUsed,
+      inkRemain: this.inkRemain,
     });
 
     if (this.undoStack.length > 20) {
@@ -264,38 +266,21 @@ export class DrawingCanvas {
     }
   }
 
-  calculateUsedInk() {
-    const imageData = this.ctx.getImageData(
-      0,
-      0,
-      this.canvas.width,
-      this.canvas.height,
-    );
-
-    let usedInk = 0;
-
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const alpha = imageData.data[i + 3];
-
-      if (alpha > 0) {
-        usedInk += 1;
-      }
-    }
-
-    return usedInk;
-  }
-
-  refreshInkUsage() {
-    this.inkUsed = this.calculateUsedInk();
-    this.inkRemain = Math.max(0, this.maxInk - this.inkUsed);
-    this.updateInkUI();
-  }
-
   calculateDistance(pointA, pointB) {
     const dx = pointA.x - pointB.x;
     const dy = pointA.y - pointB.y;
 
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  calculateInkCost(distance) {
+    return distance * this.brushSize;
+  }
+
+  useInk(amount) {
+    this.inkUsed += amount;
+    this.inkRemain = Math.max(0, this.maxInk - this.inkUsed);
+    this.updateInkUI();
   }
 
   updateInkUI() {
@@ -324,8 +309,14 @@ export class DrawingCanvas {
   }
 
   setMaxInk(maxInk) {
-    this.maxInk = Math.max(1, Math.floor(maxInk));
-    this.refreshInkUsage();
+    this.maxInk = maxInk;
+    this.inkUsed = 0;
+    this.inkRemain = maxInk;
+    this.undoStack = [];
+
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.saveCanvasState();
+    this.updateInkUI();
   }
 
   isPointInsideCanvas(event) {
@@ -337,24 +328,6 @@ export class DrawingCanvas {
       && event.clientY >= rect.top
       && event.clientY <= rect.bottom
     );
-  }
-
-  setCanvasSize(width, height, maxInk) {
-    this.canvas.width = width;
-    this.canvas.height = height;
-
-    this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
-    this.ctx.lineCap = "round";
-    this.ctx.lineJoin = "round";
-
-    this.maxInk = Math.max(1, Math.floor(maxInk));
-    this.inkUsed = 0;
-    this.inkRemain = this.maxInk;
-    this.undoStack = [];
-
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.saveCanvasState();
-    this.updateInkUI();
   }
 
   getCanvasPoint(event) {
