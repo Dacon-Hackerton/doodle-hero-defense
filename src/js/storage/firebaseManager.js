@@ -5,6 +5,9 @@ import {
   collection,
   addDoc,
   getDocs,
+  query,
+  orderBy,
+  limit,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -76,4 +79,48 @@ export async function loadRandomInvasionCharacterFromFirebase() {
   }
 
   return characters[Math.floor(Math.random() * characters.length)];
+}
+
+export async function loadRankingsFromFirebase() {
+  try {
+    const rankingQuery = query(
+      collection(db, "rankings"),
+      orderBy("reachedStage", "desc"),
+      limit(10),
+    );
+
+    const querySnapshot = await getDocs(rankingQuery);
+    const rankings = [];
+
+    querySnapshot.forEach((docSnap) => {
+      rankings.push({
+        firebaseId: docSnap.id,
+        ...docSnap.data(),
+      });
+    });
+
+    return rankings;
+  } catch (error) {
+    console.warn("랭킹 불러오기 실패:", error);
+    return [];
+  }
+}
+
+export async function saveRankingToFirebase(rankingData) {
+  try {
+    const docRef = await addDoc(collection(db, "rankings"), {
+      playerName: rankingData.playerName ?? "익명",
+      reachedStage: Number(rankingData.reachedStage) || 1,
+      characterSlots: Array.isArray(rankingData.characterSlots)
+        ? rankingData.characterSlots
+        : [],
+      createdAt: serverTimestamp(),
+    });
+
+    console.log("랭킹 저장 성공:", docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.warn("랭킹 저장 실패:", error);
+    return null;
+  }
 }

@@ -215,8 +215,9 @@ export class BattleManager {
 
   pickStageTwoOrMoreEnemyCharacter() {
     return this.pickCorruptedEnemyCharacter()
-    ?? this.pickInvasionEnemyCharacter()
-    ?? this.createFallbackEnemyCharacter();
+      ?? this.pickInvasionEnemyCharacter()
+      ?? this.pickForcedCorruptedEnemyCharacter()
+      ?? this.createFallbackEnemyCharacter();
   }
 
   pickCorruptedEnemyCharacter() {
@@ -259,6 +260,22 @@ export class BattleManager {
       namePrefix: "난입한",
       source: CHARACTER_SOURCE.FIREBASE,
     });
+  }
+
+  pickForcedCorruptedEnemyCharacter() {
+    if (this.currentStage <= 1) {
+      return null;
+    }
+
+    if (!this.fallenCharacter) {
+      return null;
+    }
+
+    if (!this.isEnemyCandidateCharacter(this.fallenCharacter)) {
+      return null;
+    }
+
+    return this.scaleCorruptedEnemyCharacter(this.fallenCharacter);
   }
 
   calculateAveragePartyPower() {

@@ -23,6 +23,31 @@ const DEFAULT_CANVAS_LEVEL = 1;
 const SOFT_CAP_POWER = 18500;
 const ABSOLUTE_POWER_LIMIT = 19500;
 
+const SUMMON_COST_RANGE_BY_GRADE = {
+  C: {
+    min: 70,
+    max: 110,
+  },
+  B: {
+    min: 90,
+    max: 135,
+  },
+  A: {
+    min: 120,
+    max: 180,
+  },
+  S: {
+    min: 160,
+    max: 240,
+  },
+  SS: {
+    min: 200,
+    max: 300,
+  },
+};
+
+const MAX_COST_REFERENCE_POWER = 20000;
+
 export class StatCalculator {
   static createStatsAndGrade(canvas, options = {}) {
     const canvasLevel = options.canvasLevel || DEFAULT_CANVAS_LEVEL;
@@ -126,6 +151,8 @@ export class StatCalculator {
 
     power = this.applySoftPowerLimit(power);
 
+    const grade = this.createGrade(power);
+
     const attack = Math.floor(25 + power * 0.006 + colors.red * 90);
 
     const hp = Math.floor(120 + power * 0.035 + colors.blue * 240);
@@ -143,10 +170,7 @@ export class StatCalculator {
 
     const range = Math.floor(70 + colors.purple * 190 + colors.black * 20);
 
-    const baseCost = 40 + power * 0.035;
-
-    const costReductionRate = Math.min(colors.green * 0.35, 0.3);
-    const cost = Math.max(20, Math.floor(baseCost * (1 - costReductionRate)));
+    const cost = this.createSummonCost(power, grade, colors);
 
     return {
       attack,
@@ -157,6 +181,26 @@ export class StatCalculator {
       cost,
       power,
     };
+  }
+
+  static createSummonCost(power, grade, colors) {
+    const safePower = Number(power) || 0;
+    const costRange =
+      SUMMON_COST_RANGE_BY_GRADE[grade] ?? SUMMON_COST_RANGE_BY_GRADE.C;
+
+    const normalizedPower = Math.min(
+      safePower / MAX_COST_REFERENCE_POWER,
+      1,
+    );
+
+    const rawCost =
+      costRange.min +
+      (costRange.max - costRange.min) * normalizedPower;
+
+    const greenReductionRate = Math.min(colors.green * 0.2, 0.15);
+    const reducedCost = rawCost * (1 - greenReductionRate);
+
+    return Math.max(40, Math.round(reducedCost));
   }
 
   static applySoftPowerLimit(power) {
