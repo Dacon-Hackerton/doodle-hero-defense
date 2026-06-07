@@ -1,5 +1,3 @@
-import { saveInvasionCharacterToFirebase,
-  loadRandomInvasionCharacterFromFirebase } from "./storage/firebaseManager.js";
 import { BattleManager } from "./battle/BattleManager.js";
 import { DrawingCanvas } from "./drawing/DrawingCanvas.js";
 import { JudgeManager } from "./drawing/JudgeManager.js";
@@ -15,6 +13,7 @@ import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 const DEFAULT_CARD_COOLDOWN = 3.0;
 const STAGE_CLEAR_REWARD = 5000;
 const INVASION_SAVE_CHANCE = 1;
+let firebaseManagerPromise = null;
 
 const INK_TANK_CONFIG = {
   1: {
@@ -96,7 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let selectedSlotIndex = null;
   let characterSlots = [null, null, null];
   let battleManager = null;
-  let invasionCharacter = null;
+  let invasionCharacters = [];
   const cardCooldowns = new Map();
   let cardCooldownFrameId = null;
   let lastCardCooldownTime = 0;
@@ -402,7 +401,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     showScreen("battleScreen");
     hideBattleResult();
 
-    await loadAndStoreInvasionCharacter();
+    invasionCharacters = await loadAndStoreInvasionCharacters();
 
     if (!battleManager) {
       battleManager = new BattleManager("battleCanvas");
@@ -420,6 +419,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     battleManager.setStatusElement(battleStatusText);
     battleManager.setStage(currentStage);
+    battleManager.setInvasionCharacters(invasionCharacters);
     battleManager.startBattle(characterSlots);
     resetCardCooldowns(characterSlots);
     renderBattleSlotCards(characterSlots, {
@@ -435,6 +435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     battleManager.setStage(currentStage);
+    battleManager.setInvasionCharacters(invasionCharacters);
     hideBattleResult();
     battleManager.startBattle(characterSlots);
     resetCardCooldowns(characterSlots);
@@ -647,17 +648,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  async function loadAndStoreInvasionCharacter() {
-  invasionCharacter = await loadRandomInvasionCharacterFromFirebase();
+  async function loadAndStoreInvasionCharacters() {
+    const firebaseManager = await getFirebaseManager();
 
-  if (!invasionCharacter) {
-    console.log("저장할 난입 캐릭터가 없습니다.");
-    return null;
+    if (!firebaseManager?.loadInvasionCharactersFromFirebase) {
+      invasionCharacters = [];
+      return invasionCharacters;
+    }
+
+    try {
+      const loadedCharacters = await firebaseManager.loadInvasionCharactersFromFirebase();
+      invasionCharacters = Array.isArray(loadedCharacters) ? loadedCharacters : [];
+    } catch (error) {
+      console.warn("Failed to load Firebase invasion candidates", error);
+      invasionCharacters = [];
+    }
+
+    return invasionCharacters;
   }
-
-  console.log("난입 캐릭터 저장 완료:", invasionCharacter);
-  return invasionCharacter;
-}
 
   async function trySaveAsInvasionCharacter(character) {
     if (!character) {
@@ -669,7 +677,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const firebaseId = await saveInvasionCharacterToFirebase(character);
+    const firebaseManager = await getFirebaseManager();
+
+    if (!firebaseManager?.saveInvasionCharacterToFirebase) {
+      return;
+    }
+
+    const firebaseId = await firebaseManager.saveInvasionCharacterToFirebase(character);
 
     if (firebaseId) {
       character.invasionFirebaseId = firebaseId;
@@ -689,7 +703,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     isStageClearReplacementMode = false;
     isHandlingStageClear = false;
     fallenCharacter = null;
-    invasionCharacter = null;
+    invasionCharacters = [];
     cardCooldowns.clear();
     clearCurrentResult();
 
@@ -904,7 +918,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   window.__debugLoadRandomInvasionCharacter = async () => {
-    const character = await loadRandomInvasionCharacterFromFirebase();
+    const firebaseManager = await getFirebaseManager();
+
+    if (!firebaseManager?.loadRandomInvasionCharacterFromFirebase) {
+      return null;
+    }
+
+    const character = await firebaseManager.loadRandomInvasionCharacterFromFirebase();
 
     if (!character) {
       console.log("불러온 난입 캐릭터 없음");
@@ -915,6 +935,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     return character;
   };
 });
+
+async function getFirebaseManager(timeoutMs = 2000) {
+  if (!firebaseManagerPromise) {
+    firebaseManagerPromise = import("./storage/firebaseManager.js").catch((error) => {
+      console.warn("Firebase manager is unavailable", error);
+      return null;
+    });
+  }
+
+  return Promise.race([
+    firebaseManagerPromise,
+    new Promise((resolve) => {
+      setTimeout(() => resolve(null), timeoutMs);
+    }),
+  ]);
+}
 
 function updateStartActions(hasSavedSlotData) {
   setElementHidden(document.getElementById("startButton"), hasSavedSlotData);
