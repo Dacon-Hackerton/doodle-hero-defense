@@ -4,7 +4,6 @@ import {
   createDefaultEnemyCharacter,
   normalizeCharacter,
 } from "../models/CharacterSchema.js";
-import { loadCorruptedCharacters } from "../storage/LocalStorageManager.js";
 import { BATTLE_CONFIG } from "./BattleConfig.js";
 import { applyBaseDamage, createBattleBases } from "./Base.js";
 import { BattleRenderer } from "./BattleRenderer.js";
@@ -29,6 +28,7 @@ export class BattleManager {
     this.enemyBase = this.getBase(TEAM.ENEMY);
     this.allyCharacters = [];
     this.partyCharacters = [];
+    this.fallenCharacter = null;
     this.invasionCharacters = [];
     this.allyUnits = [];
     this.enemyUnits = [];
@@ -76,6 +76,15 @@ export class BattleManager {
           source: CHARACTER_SOURCE.FIREBASE,
         }))
       : [];
+  }
+
+  setFallenCharacter(character = null) {
+    this.fallenCharacter = this.isEnemyCandidateCharacter(character)
+      ? {
+          ...character,
+          source: CHARACTER_SOURCE.LOCAL,
+        }
+      : null;
   }
 
   start(allyCharacterOrCharacters) {
@@ -201,13 +210,13 @@ export class BattleManager {
   }
 
   pickStageOneEnemyCharacter() {
-    return this.pickInvasionEnemyCharacter() ?? this.createFallbackEnemyCharacter();
+    return this.createFallbackEnemyCharacter();
   }
 
   pickStageTwoOrMoreEnemyCharacter() {
-    return this.pickInvasionEnemyCharacter()
-      ?? this.pickCorruptedEnemyCharacter()
-      ?? this.createFallbackEnemyCharacter();
+    return this.pickCorruptedEnemyCharacter()
+    ?? this.pickInvasionEnemyCharacter()
+    ?? this.createFallbackEnemyCharacter();
   }
 
   pickCorruptedEnemyCharacter() {
@@ -215,30 +224,11 @@ export class BattleManager {
       return null;
     }
 
-    let corruptedCharacters = [];
-
-    try {
-      corruptedCharacters = loadCorruptedCharacters();
-    } catch (error) {
-      console.warn("Failed to load corrupted enemy candidates", error);
+    if (!this.fallenCharacter) {
       return null;
     }
 
-    const availableCharacters = corruptedCharacters.filter((character) => {
-      const corruptedAtStageValue = character?.meta?.corruptedAtStage;
-
-      if (corruptedAtStageValue === null || corruptedAtStageValue === undefined) {
-        return false;
-      }
-
-      const corruptedAtStage = Number(corruptedAtStageValue);
-
-      return Number.isFinite(corruptedAtStage) &&
-        corruptedAtStage < this.currentStage &&
-        this.isEnemyCandidateCharacter(character);
-    });
-
-    if (availableCharacters.length === 0) {
+    if (!this.isEnemyCandidateCharacter(this.fallenCharacter)) {
       return null;
     }
 
@@ -246,12 +236,7 @@ export class BattleManager {
       return null;
     }
 
-    const selectedCharacter =
-      availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
-
-    return this.scaleCorruptedEnemyCharacter(selectedCharacter, {
-      namePrefix: "타락한",
-    });
+    return this.scaleCorruptedEnemyCharacter(this.fallenCharacter);
   }
 
   pickInvasionEnemyCharacter() {

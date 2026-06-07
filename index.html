@@ -28,11 +28,23 @@
       </header>
 
       <div class="draw-layout">
-        <canvas id="drawCanvas" width="400" height="400"></canvas>
+        <div class="canvas-area">
+          <p id="canvasLevelText">캔버스 Lv.1 / 400×400</p>
+          <canvas id="drawCanvas" width="400" height="400"></canvas>
 
-        <div class="draw-controls tool-panel">
-          <label>
-            캐릭터 이름
+          <div class="draw-main-actions">
+            <button id="judgeButton" type="button" class="primary-btn">감정하기</button>
+          </div>
+        </div>
+
+        <aside class="draw-controls tool-panel draw-side-panel">
+          <div class="side-panel-header">
+            <h2>낙서 작업실</h2>
+            <p>그림을 그리고 도구를 강화하세요</p>
+          </div>
+
+          <label class="character-name-field">
+            <span>캐릭터 이름</span>
             <input
               type="text"
               id="characterNameInput"
@@ -41,68 +53,105 @@
             />
           </label>
 
-          <div class="tool-group">
-            <p>색상 선택</p>
+          <div class="panel-tabs">
+            <button type="button" class="panel-tab active" data-panel-tab="tool">
+              🎨 도구
+            </button>
+            <button type="button" class="panel-tab" data-panel-tab="shop">
+              🛒 상점
+            </button>
+          </div>
 
-            <div class="color-palette">
-              <button type="button" class="color-btn active" data-color="#000000" style="background-color: #000000;" title="검정"></button>
-              <button type="button" class="color-btn" data-color="#0066ff" style="background-color: #0066ff;" title="파랑"></button>
-              <button type="button" class="color-btn" data-color="#ffeb00" style="background-color: #ffeb00;" title="노랑"></button>
-              <button type="button" class="color-btn" data-color="#ff0000" style="background-color: #ff0000;" title="빨강"></button>
-              <button type="button" class="color-btn" data-color="#8e24aa" style="background-color: #8e24aa;" title="보라"></button>
-              <button type="button" class="color-btn" data-color="#00c853" style="background-color: #00c853;" title="녹색"></button>
+          <div id="toolPanel" class="panel-content active">
+            <div class="panel-card">
+              <div class="panel-card-title">
+                <h3>그리기 도구</h3>
+                <span id="inkTankLevelText">잉크통 Lv.1</span>
+              </div>
+
+              <div class="ink-status-card">
+                <p id="inkText">잉크: 100%</p>
+              </div>
+
+              <div class="tool-group">
+                <label class="tool-label">색상 선택</label>
+
+                <div class="color-palette">
+                  <button type="button" class="color-btn active" data-color="#000000" style="background-color: #000000;" title="검정"></button>
+                  <button type="button" class="color-btn" data-color="#0066ff" style="background-color: #0066ff;" title="파랑"></button>
+                  <button type="button" class="color-btn" data-color="#ffeb00" style="background-color: #ffeb00;" title="노랑"></button>
+                  <button type="button" class="color-btn" data-color="#ff0000" style="background-color: #ff0000;" title="빨강"></button>
+                  <button type="button" class="color-btn" data-color="#8e24aa" style="background-color: #8e24aa;" title="보라"></button>
+                  <button type="button" class="color-btn" data-color="#00c853" style="background-color: #00c853;" title="녹색"></button>
+                </div>
+              </div>
+
+              <div class="tool-group">
+                <label class="tool-label" for="brushSizeInput">브러시 크기</label>
+                <input type="range" id="brushSizeInput" min="1" max="30" value="5" />
+              </div>
+
+              <div class="tool-button-grid">
+                <button id="eraserButton" type="button">지우개</button>
+                <button id="undoButton" type="button">되돌리기</button>
+                <button id="clearButton" type="button">전체 지우기</button>
+              </div>
             </div>
           </div>
 
-          <div class="shop-section">
-            <h3>상점</h3>
-            <p id="moneyText">보유 돈: 10000원</p>
+          <div id="shopPanel" class="panel-content">
+            <div class="panel-card">
+              <div class="shop-header-card">
+                <div>
+                  <h3>상점</h3>
+                  <p>낙서 도구를 강화하세요</p>
+                </div>
 
-            <div class="shop-items">
-              <button type="button" class="shop-color-item" data-shop-color="#0066ff" data-price="1000">
-                파랑 해금 - 1000원
-              </button>
+                <strong id="moneyText">보유 돈: 10000원</strong>
+              </div>
 
-              <button type="button" class="shop-color-item" data-shop-color="#ffeb00" data-price="1000">
-                노랑 해금 - 1000원
-              </button>
+              <div class="shop-category">
+                <h4>색상 해금</h4>
 
-              <button type="button" class="shop-color-item" data-shop-color="#ff0000" data-price="1000">
-                빨강 해금 - 1000원
-              </button>
+                <div class="shop-items">
+                  <button type="button" class="shop-color-item" data-shop-color="#0066ff" data-price="1000">
+                    파랑 해금 - 1000원
+                  </button>
 
-              <button type="button" class="shop-color-item" data-shop-color="#8e24aa" data-price="1000">
-                보라 해금 - 1000원
-              </button>
+                  <button type="button" class="shop-color-item" data-shop-color="#ffeb00" data-price="1000">
+                    노랑 해금 - 1000원
+                  </button>
 
-              <button type="button" class="shop-color-item" data-shop-color="#00c853" data-price="1000">
-                녹색 해금 - 1000원
-              </button>
+                  <button type="button" class="shop-color-item" data-shop-color="#ff0000" data-price="1000">
+                    빨강 해금 - 1000원
+                  </button>
 
-              <button type="button" id="inkTankUpgradeButton" class="shop-upgrade-item">
-                잉크통 업그레이드 Lv.2 - 2000원
-              </button>
+                  <button type="button" class="shop-color-item" data-shop-color="#8e24aa" data-price="1000">
+                    보라 해금 - 1000원
+                  </button>
 
-              <button type="button" id="canvasUpgradeButton" class="shop-upgrade-item">
-                캔버스 확장 Lv.2 - 3000원
-              </button>
+                  <button type="button" class="shop-color-item" data-shop-color="#00c853" data-price="1000">
+                    녹색 해금 - 1000원
+                  </button>
+                </div>
+              </div>
+
+              <div class="shop-category">
+                <h4>도구 업그레이드</h4>
+
+                <div class="shop-items">
+                  <button type="button" id="inkTankUpgradeButton" class="shop-upgrade-item">
+                    잉크통 업그레이드 Lv.2 - 2000원
+                  </button>
+
+                  <button type="button" id="canvasUpgradeButton" class="shop-upgrade-item">
+                    캔버스 확장 Lv.2 - 3000원
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div class="tool-group">
-            <p id="inkText">잉크: 100%</p>
-          </div>
-
-          <label>
-            브러시 크기
-            <input type="range" id="brushSizeInput" min="1" max="30" value="5" />
-          </label>
-
-          <button id="eraserButton" type="button">지우개</button>
-          <button id="undoButton" type="button">되돌리기</button>
-          <button id="clearButton" type="button">전체 지우기</button>
-          <button id="judgeButton" type="button" class="primary-btn">감정하기</button>
-        </div>
+        </aside>
       </div>
     </section>
 

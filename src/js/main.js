@@ -4,7 +4,6 @@ import { JudgeManager } from "./drawing/JudgeManager.js";
 import { StatCalculator } from "./drawing/StatCalculator.js";
 import { createCorruptedCharacter } from "./models/CharacterSchema.js";
 import {
-  addCorruptedCharacter,
   loadCurrentStage,
   saveCurrentStage,
 } from "./storage/LocalStorageManager.js";
@@ -81,6 +80,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const inkTankUpgradeButton = document.getElementById("inkTankUpgradeButton");
   const canvasUpgradeButton = document.getElementById("canvasUpgradeButton");
 
+  const panelTabButtons = document.querySelectorAll(".panel-tab");
+  const panelContents = document.querySelectorAll(".panel-content");
+
+  panelTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetTab = button.dataset.panelTab;
+
+      panelTabButtons.forEach((tabButton) => {
+        tabButton.classList.toggle("active", tabButton === button);
+      });
+
+      panelContents.forEach((panel) => {
+        panel.classList.toggle("active", panel.id === `${targetTab}Panel`);
+      });
+    });
+  });
+
   battleSlotButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const slotIndex = Number(button.dataset.battleSlotIndex);
@@ -111,8 +127,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const hasSavedSlotData = await loadSavedRunData();
 
-  renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
-
   applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
 
   renderShopState({
@@ -120,6 +134,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     unlockedColors,
     inkTankLevel,
     canvasLevel,
+  });
+
+  renderDrawingUpgradeInfo({
+    canvasLevel,
+    inkTankLevel,
   });
 
   if (!hasSavedSlotData) {
@@ -178,6 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       drawingCanvas,
       judgeManager: currentJudgeManager,
       characterNameInput,
+      canvasLevel,
     });
 
     currentJudgeManager.renderResult(currentCharacter);
@@ -233,6 +253,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
+    });
+
     saveCurrentRunData();
   });
 
@@ -283,6 +309,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       unlockedColors,
       inkTankLevel,
       canvasLevel,
+    });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
     });
 
     saveCurrentRunData();
@@ -419,6 +450,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     battleManager.setStatusElement(battleStatusText);
     battleManager.setStage(currentStage);
+    battleManager.setFallenCharacter(fallenCharacter);
     battleManager.setInvasionCharacters(invasionCharacters);
     battleManager.startBattle(characterSlots);
     resetCardCooldowns(characterSlots);
@@ -435,6 +467,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     battleManager.setStage(currentStage);
+    battleManager.setFallenCharacter(fallenCharacter);
     battleManager.setInvasionCharacters(invasionCharacters);
     hideBattleResult();
     battleManager.startBattle(characterSlots);
@@ -901,10 +934,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function markCharacterAsCorrupted(character, stage) {
-    const corruptedCharacter = createCorruptedCharacter(character, stage);
-    addCorruptedCharacter(corruptedCharacter);
-
-    return corruptedCharacter;
+    return createCorruptedCharacter(character, stage);
   }
 
   window.__debugAddCorruptedCharacter = (character) => {
@@ -1062,11 +1092,12 @@ function createCharacterFromCurrentDrawing({
   drawingCanvas,
   judgeManager,
   characterNameInput,
+  canvasLevel = 1,
 }) {
   const drawCanvas = document.getElementById("drawCanvas");
 
   const { stats, grade } = StatCalculator.createStatsAndGrade(drawCanvas, {
-    canvasLevel: 1,
+    canvasLevel,
   });
 
   return judgeManager.createCharacter({
@@ -1291,4 +1322,20 @@ function getMaxInkByInkTankLevel(canvas, inkTankLevel) {
   const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
 
   return Math.floor(canvas.width * canvas.height * config.ratio);
+}
+
+function renderDrawingUpgradeInfo({ canvasLevel, inkTankLevel }) {
+  const canvasLevelText = document.getElementById("canvasLevelText");
+  const inkTankLevelText = document.getElementById("inkTankLevelText");
+
+  const canvasConfig = getCanvasConfig(canvasLevel);
+
+  if (canvasLevelText) {
+    canvasLevelText.textContent =
+      `캔버스 Lv.${canvasLevel} / ${canvasConfig.width}×${canvasConfig.height}`;
+  }
+
+  if (inkTankLevelText) {
+    inkTankLevelText.textContent = `잉크통 Lv.${inkTankLevel}`;
+  }
 }
