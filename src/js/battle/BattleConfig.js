@@ -21,7 +21,7 @@ export const BATTLE_CONFIG = Object.freeze({
 
   enemySpawnInterval: 3.0,
   maxEnemyUnits: 20,
-  corruptedEnemyChance: 0.25,
+  corruptedEnemyChance: 0.80,
   invasionEnemyChance: 0.20,
   baseDamage: 80,
 

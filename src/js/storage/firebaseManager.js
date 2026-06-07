@@ -56,8 +56,8 @@ export async function loadInvasionCharactersFromFirebase() {
     querySnapshot.forEach((doc) => {
       characters.push({
         firebaseId: doc.id,
-        source: "firebase",
-        ...doc.data()
+        ...doc.data(),
+        source: "firebase"
       });
     });
 

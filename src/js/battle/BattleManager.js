@@ -28,6 +28,7 @@ export class BattleManager {
     this.allyBase = this.getBase(TEAM.ALLY);
     this.enemyBase = this.getBase(TEAM.ENEMY);
     this.allyCharacters = [];
+    this.partyCharacters = [];
     this.invasionCharacters = [];
     this.allyUnits = [];
     this.enemyUnits = [];
@@ -68,7 +69,12 @@ export class BattleManager {
 
   setInvasionCharacters(characters = []) {
     this.invasionCharacters = Array.isArray(characters)
-      ? characters.filter((character) => this.isEnemyCandidateCharacter(character))
+      ? characters
+        .filter((character) => this.isEnemyCandidateCharacter(character))
+        .map((character) => ({
+          ...character,
+          source: CHARACTER_SOURCE.FIREBASE,
+        }))
       : [];
   }
 
@@ -102,6 +108,7 @@ export class BattleManager {
 
   resetBattle(allyCharacters = []) {
     this.allyCharacters = this.normalizeAllyCharacters(allyCharacters);
+    this.partyCharacters = this.allyCharacters;
     this.bases = createBattleBases();
     this.allyBase = this.getBase(TEAM.ALLY);
     this.enemyBase = this.getBase(TEAM.ENEMY);
@@ -186,22 +193,28 @@ export class BattleManager {
   }
 
   pickEnemyCharacter() {
-    const corruptedEnemy = this.pickCorruptedEnemyCharacter();
-
-    if (corruptedEnemy) {
-      return corruptedEnemy;
+    if (this.currentStage <= 1) {
+      return this.pickStageOneEnemyCharacter();
     }
 
-    const invasionEnemy = this.pickInvasionEnemyCharacter();
+    return this.pickStageTwoOrMoreEnemyCharacter();
+  }
 
-    if (invasionEnemy) {
-      return invasionEnemy;
-    }
+  pickStageOneEnemyCharacter() {
+    return this.pickInvasionEnemyCharacter() ?? this.createFallbackEnemyCharacter();
+  }
 
-    return this.createFallbackEnemyCharacter();
+  pickStageTwoOrMoreEnemyCharacter() {
+    return this.pickInvasionEnemyCharacter()
+      ?? this.pickCorruptedEnemyCharacter()
+      ?? this.createFallbackEnemyCharacter();
   }
 
   pickCorruptedEnemyCharacter() {
+    if (this.currentStage <= 1) {
+      return null;
+    }
+
     let corruptedCharacters = [];
 
     try {
@@ -212,7 +225,13 @@ export class BattleManager {
     }
 
     const availableCharacters = corruptedCharacters.filter((character) => {
-      const corruptedAtStage = Number(character?.meta?.corruptedAtStage);
+      const corruptedAtStageValue = character?.meta?.corruptedAtStage;
+
+      if (corruptedAtStageValue === null || corruptedAtStageValue === undefined) {
+        return false;
+      }
+
+      const corruptedAtStage = Number(corruptedAtStageValue);
 
       return Number.isFinite(corruptedAtStage) &&
         corruptedAtStage < this.currentStage &&
@@ -230,7 +249,7 @@ export class BattleManager {
     const selectedCharacter =
       availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
 
-    return this.scaleEnemyCharacterForStage(selectedCharacter, this.currentStage, {
+    return this.scaleCorruptedEnemyCharacter(selectedCharacter, {
       namePrefix: "타락한",
     });
   }
@@ -251,14 +270,138 @@ export class BattleManager {
     const selectedCharacter =
       availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
 
-    return this.scaleEnemyCharacterForStage(selectedCharacter, this.currentStage, {
+    return this.scaleInvasionEnemyCharacter(selectedCharacter, {
       namePrefix: "난입한",
       source: CHARACTER_SOURCE.FIREBASE,
     });
   }
 
+  calculateAveragePartyPower() {
+    const characters = Array.isArray(this.partyCharacters)
+      ? this.partyCharacters
+      : this.allyCharacters;
+
+    const powers = characters
+      .map((character) => Number(character?.stats?.power))
+      .filter((power) => Number.isFinite(power) && power > 0);
+
+    if (powers.length === 0) {
+      return 0;
+    }
+
+    return powers.reduce((sum, power) => sum + power, 0) / powers.length;
+  }
+
+  scaleCorruptedEnemyCharacter(character) {
+    const normalizedCharacter = normalizeCharacter({
+      ...character,
+      stats: {
+        ...character?.stats,
+        power: character?.stats?.power ?? character?.power,
+      },
+    });
+
+    return normalizeCharacter({
+      ...normalizedCharacter,
+      id: this.createEnemyCharacterId(normalizedCharacter.id, "corrupted"),
+      name: this.withEnemyNamePrefix("타락한", normalizedCharacter.name),
+      stats: {
+        ...normalizedCharacter.stats,
+        cost: 0,
+      },
+      meta: {
+        ...normalizedCharacter.meta,
+        createdStage: this.currentStage,
+      },
+    });
+  }
+
+  scaleInvasionEnemyCharacter(character) {
+    const normalizedCharacter = normalizeCharacter({
+      ...character,
+      source: CHARACTER_SOURCE.FIREBASE,
+      stats: {
+        ...character?.stats,
+        power: character?.stats?.power ?? character?.power,
+      },
+    });
+    const invasionPower = Number(character?.stats?.power ?? character?.power);
+    const averagePartyPower = this.calculateAveragePartyPower();
+    const targetMultiplier =
+      Number.isFinite(invasionPower) &&
+      invasionPower > 0 &&
+      Number.isFinite(averagePartyPower) &&
+      averagePartyPower > 0
+        ? averagePartyPower / invasionPower
+        : 1;
+    const invasionGrowthMultiplier = Math.pow(1.06, this.currentStage - 1);
+    const finalMultiplier = this.clamp(
+      targetMultiplier * invasionGrowthMultiplier,
+      0.7,
+      2.5,
+    );
+
+    return normalizeCharacter({
+      ...normalizedCharacter,
+      id: this.createEnemyCharacterId(normalizedCharacter.id, "invasion"),
+      name: this.withEnemyNamePrefix("난입한", normalizedCharacter.name),
+      source: CHARACTER_SOURCE.FIREBASE,
+      stats: {
+        ...normalizedCharacter.stats,
+        attack: Math.max(
+          1,
+          Math.round(normalizedCharacter.stats.attack * finalMultiplier),
+        ),
+        hp: Math.max(1, Math.round(normalizedCharacter.stats.hp * finalMultiplier)),
+        speed: normalizedCharacter.stats.speed,
+        attackSpeed: normalizedCharacter.stats.attackSpeed,
+        range: normalizedCharacter.stats.range,
+        cost: 0,
+        power: Math.max(
+          0,
+          Math.round(normalizedCharacter.stats.power * finalMultiplier),
+        ),
+      },
+      meta: {
+        ...normalizedCharacter.meta,
+        createdStage: this.currentStage,
+      },
+    });
+  }
+
   createFallbackEnemyCharacter() {
-    return createDefaultEnemyCharacter(this.currentStage);
+    try {
+      return createDefaultEnemyCharacter(this.currentStage);
+    } catch (error) {
+      console.warn("Failed to create default enemy character", error);
+      return this.createEmergencyEnemyCharacter();
+    }
+  }
+
+  createEmergencyEnemyCharacter() {
+    return normalizeCharacter({
+      id: this.createEnemyCharacterId("default_enemy", "fallback"),
+      name: "기본 낙서 적",
+      originalName: "default enemy",
+      imageData: null,
+      grade: "C",
+      source: CHARACTER_SOURCE.DEFAULT,
+      stats: {
+        attack: 15,
+        hp: 120,
+        speed: 1,
+        attackSpeed: 0.8,
+        range: 60,
+        cost: 0,
+        power: 500,
+      },
+      meta: {
+        createdAt: Date.now(),
+        createdStage: this.currentStage,
+        corruptedAtStage: null,
+        ownerName: "system",
+      },
+    });
   }
 
   scaleEnemyCharacterForStage(character, stage = 1, options = {}) {
@@ -309,9 +452,25 @@ export class BattleManager {
   }
 
   scaleEnemyCharacter(character, stage) {
-    return this.scaleEnemyCharacterForStage(character, stage, {
+    return this.scaleCorruptedEnemyCharacter(character, {
       namePrefix: "타락한",
     });
+  }
+
+  createEnemyCharacterId(baseId = "enemy", variant = "enemy") {
+    return `${baseId}_${variant}_${Date.now()}_${Math.random()
+      .toString(16)
+      .slice(2)}`;
+  }
+
+  withEnemyNamePrefix(prefix, name) {
+    const safeName = String(name || "Enemy");
+
+    return safeName.startsWith(`${prefix} `) ? safeName : `${prefix} ${safeName}`;
+  }
+
+  clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
   }
 
   loop(timestamp) {
