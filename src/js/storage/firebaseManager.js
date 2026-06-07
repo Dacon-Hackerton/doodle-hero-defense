@@ -30,7 +30,7 @@ export async function saveInvasionCharacterToFirebase(character) {
       grade: character.grade ?? "C",
       power: character.stats?.power ?? 0,
       stats: character.stats ?? {},
-      source: "invasion",
+      source: "firebase",
       meta: character.meta ?? {},
       createdAt: serverTimestamp()
     });
@@ -38,18 +38,17 @@ export async function saveInvasionCharacterToFirebase(character) {
     console.log("난입 캐릭터 Firebase 저장 성공:", docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error("난입 캐릭터 Firebase 저장 실패:", error);
+    console.warn("난입 캐릭터 Firebase 저장 실패:", error);
     return null;
   }
 }
 
-export async function loadRandomInvasionCharacterFromFirebase() {
+export async function loadInvasionCharactersFromFirebase() {
   try {
     const querySnapshot = await getDocs(collection(db, "invasionCharacters"));
 
     if (querySnapshot.empty) {
-      console.log("저장된 난입 캐릭터가 없습니다.");
-      return null;
+      return [];
     }
 
     const characters = [];
@@ -57,17 +56,24 @@ export async function loadRandomInvasionCharacterFromFirebase() {
     querySnapshot.forEach((doc) => {
       characters.push({
         firebaseId: doc.id,
+        source: "firebase",
         ...doc.data()
       });
     });
 
-    const randomIndex = Math.floor(Math.random() * characters.length);
-    const randomCharacter = characters[randomIndex];
-
-    console.log("랜덤 난입 캐릭터 불러오기 성공:", randomCharacter);
-    return randomCharacter;
+    return characters;
   } catch (error) {
-    console.error("랜덤 난입 캐릭터 불러오기 실패:", error);
+    console.warn("Failed to load Firebase invasion characters", error);
+    return [];
+  }
+}
+
+export async function loadRandomInvasionCharacterFromFirebase() {
+  const characters = await loadInvasionCharactersFromFirebase();
+
+  if (characters.length === 0) {
     return null;
   }
+
+  return characters[Math.floor(Math.random() * characters.length)];
 }

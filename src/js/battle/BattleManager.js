@@ -1,5 +1,6 @@
 import { BATTLE_STATE, TEAM, UNIT_STATE } from "../constants/BattleConstants.js";
 import {
+  CHARACTER_SOURCE,
   createDefaultEnemyCharacter,
   normalizeCharacter,
 } from "../models/CharacterSchema.js";
@@ -27,6 +28,7 @@ export class BattleManager {
     this.allyBase = this.getBase(TEAM.ALLY);
     this.enemyBase = this.getBase(TEAM.ENEMY);
     this.allyCharacters = [];
+    this.invasionCharacters = [];
     this.allyUnits = [];
     this.enemyUnits = [];
     this.currentCost = BATTLE_CONFIG.startCost;
@@ -64,6 +66,12 @@ export class BattleManager {
     this.battleEndHandler = handler;
   }
 
+  setInvasionCharacters(characters = []) {
+    this.invasionCharacters = Array.isArray(characters)
+      ? characters.filter((character) => this.isEnemyCandidateCharacter(character))
+      : [];
+  }
+
   start(allyCharacterOrCharacters) {
     const characters = Array.isArray(allyCharacterOrCharacters)
       ? allyCharacterOrCharacters
@@ -72,8 +80,17 @@ export class BattleManager {
     this.startBattle(characters);
   }
 
-  startBattle(allyCharacters = []) {
+  startBattle(allyCharacters = [], options = {}) {
     this.stopBattle();
+
+    if (options.currentStage !== undefined) {
+      this.setStage(options.currentStage);
+    }
+
+    if (options.invasionCharacters !== undefined) {
+      this.setInvasionCharacters(options.invasionCharacters);
+    }
+
     this.resetBattle(allyCharacters);
 
     this.battleState = BATTLE_STATE.PLAYING;
@@ -175,16 +192,31 @@ export class BattleManager {
       return corruptedEnemy;
     }
 
-    return createDefaultEnemyCharacter(this.currentStage);
+    const invasionEnemy = this.pickInvasionEnemyCharacter();
+
+    if (invasionEnemy) {
+      return invasionEnemy;
+    }
+
+    return this.createFallbackEnemyCharacter();
   }
 
   pickCorruptedEnemyCharacter() {
-    const corruptedCharacters = loadCorruptedCharacters();
+    let corruptedCharacters = [];
+
+    try {
+      corruptedCharacters = loadCorruptedCharacters();
+    } catch (error) {
+      console.warn("Failed to load corrupted enemy candidates", error);
+      return null;
+    }
+
     const availableCharacters = corruptedCharacters.filter((character) => {
       const corruptedAtStage = Number(character?.meta?.corruptedAtStage);
 
       return Number.isFinite(corruptedAtStage) &&
-        corruptedAtStage < this.currentStage;
+        corruptedAtStage < this.currentStage &&
+        this.isEnemyCandidateCharacter(character);
     });
 
     if (availableCharacters.length === 0) {
@@ -198,19 +230,60 @@ export class BattleManager {
     const selectedCharacter =
       availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
 
-    return this.scaleEnemyCharacter(selectedCharacter, this.currentStage);
+    return this.scaleEnemyCharacterForStage(selectedCharacter, this.currentStage, {
+      namePrefix: "타락한",
+    });
   }
 
-  scaleEnemyCharacter(character, stage) {
-    const normalizedCharacter = normalizeCharacter(character);
-    const stageMultiplier = 1 + (stage - 1) * 0.15;
+  pickInvasionEnemyCharacter() {
+    const availableCharacters = this.invasionCharacters.filter((character) => (
+      this.isEnemyCandidateCharacter(character)
+    ));
+
+    if (availableCharacters.length === 0) {
+      return null;
+    }
+
+    if (Math.random() >= BATTLE_CONFIG.invasionEnemyChance) {
+      return null;
+    }
+
+    const selectedCharacter =
+      availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
+
+    return this.scaleEnemyCharacterForStage(selectedCharacter, this.currentStage, {
+      namePrefix: "난입한",
+      source: CHARACTER_SOURCE.FIREBASE,
+    });
+  }
+
+  createFallbackEnemyCharacter() {
+    return createDefaultEnemyCharacter(this.currentStage);
+  }
+
+  scaleEnemyCharacterForStage(character, stage = 1, options = {}) {
+    const normalizedCharacter = normalizeCharacter({
+      ...character,
+      source: options.source ?? character?.source,
+      stats: {
+        ...character?.stats,
+        power: character?.stats?.power ?? character?.power,
+      },
+    });
+    const nextStage = Number(stage);
+    const safeStage = Number.isFinite(nextStage) && nextStage > 0
+      ? Math.floor(nextStage)
+      : 1;
+    const stageMultiplier = 1 + (safeStage - 1) * 0.12;
+    const namePrefix = options.namePrefix ? `${options.namePrefix} ` : "";
 
     return normalizeCharacter({
       ...normalizedCharacter,
       id: `${normalizedCharacter.id}_enemy_${Date.now()}_${Math.random()
         .toString(16)
         .slice(2)}`,
-      name: `타락한 ${normalizedCharacter.name}`,
+      name: `${namePrefix}${normalizedCharacter.name}`,
+      source: options.source ?? normalizedCharacter.source,
       stats: {
         ...normalizedCharacter.stats,
         attack: Math.round(normalizedCharacter.stats.attack * stageMultiplier),
@@ -221,6 +294,23 @@ export class BattleManager {
         cost: 0,
         power: Math.round(normalizedCharacter.stats.power * stageMultiplier),
       },
+      meta: {
+        ...normalizedCharacter.meta,
+        createdStage: safeStage,
+      },
+    });
+  }
+
+  isEnemyCandidateCharacter(character) {
+    const stats = character?.stats ?? {};
+    const requiredStats = ["hp", "attack", "speed", "attackSpeed", "range"];
+
+    return requiredStats.every((key) => Number.isFinite(Number(stats[key])));
+  }
+
+  scaleEnemyCharacter(character, stage) {
+    return this.scaleEnemyCharacterForStage(character, stage, {
+      namePrefix: "타락한",
     });
   }
 
@@ -632,34 +722,6 @@ export class BattleManager {
         createdStage: 1,
         corruptedAtStage: null,
         ownerName: "playerA",
-      },
-    };
-  }
-
-  createDefaultEnemyCharacter(stage = 1) {
-    const stageBonus = Math.max(0, stage - 1);
-
-    return {
-      id: `default_enemy_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      name: "Default Doodle Enemy",
-      originalName: "default enemy",
-      imageData: null,
-      grade: "C",
-      source: "default",
-      stats: {
-        attack: 15 + stageBonus * 3,
-        hp: 120 + stageBonus * 20,
-        speed: 1.0 + stageBonus * 0.05,
-        attackSpeed: 0.8,
-        range: 60,
-        cost: 0,
-        power: 500 + stageBonus * 120,
-      },
-      meta: {
-        createdAt: Date.now(),
-        createdStage: stage,
-        corruptedAtStage: null,
-        ownerName: "system",
       },
     };
   }

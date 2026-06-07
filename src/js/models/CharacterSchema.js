@@ -64,7 +64,7 @@ export function createCharacter({
 }
 
 export function createDefaultEnemyCharacter(stage = 1) {
-  const stageMultiplier = 1 + (stage - 1) * 0.15;
+  const stageMultiplier = 1 + (stage - 1) * 0.12;
 
   return createCharacter({
     id: `default_enemy_${stage}_${Date.now()}`,
