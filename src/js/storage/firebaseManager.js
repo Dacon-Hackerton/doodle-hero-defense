@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { firebaseConfig } from "./firebaseConfig.js";
 
 import {
   getFirestore,
@@ -10,15 +11,6 @@ import {
   limit,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDJZzVhSokVk5iiliZ9gHDcC_4AxIcQwIw",
-  authDomain: "doodle-hero-defense.firebaseapp.com",
-  projectId: "doodle-hero-defense",
-  storageBucket: "doodle-hero-defense.firebasestorage.app",
-  messagingSenderId: "658151526331",
-  appId: "1:658151526331:web:20baf72d9be613d853be9e"
-};
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);

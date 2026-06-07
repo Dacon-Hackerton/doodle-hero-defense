@@ -1,0 +1,4 @@
+src/js/storage/firebaseConfig.js
+.env
+.env.local
+.env.*.local
