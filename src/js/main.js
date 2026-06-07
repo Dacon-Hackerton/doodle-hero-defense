@@ -10,19 +10,19 @@ import {
 import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
 const DEFAULT_CARD_COOLDOWN = 3.0;
-const STAGE_CLEAR_REWARD = 5000;
-const INVASION_SAVE_CHANCE = 1;
+const STAGE_CLEAR_REWARD = 2000;
+const INVASION_SAVE_CHANCE = 0.05;
 const PLAYER_STAGE_GROWTH_RATE = 1.04;
 let firebaseManagerPromise = null;
 
 const INK_TANK_CONFIG = {
   1: {
     ratio: 0.5,
-    nextPrice: 2000,
+    nextPrice: 4000,
   },
   2: {
     ratio: 0.65,
-    nextPrice: 4000,
+    nextPrice: 8000,
   },
   3: {
     ratio: 0.8,
@@ -37,12 +37,12 @@ const CANVAS_CONFIG = {
   1: {
     width: 400,
     height: 400,
-    nextPrice: 3000,
+    nextPrice: 6000,
   },
   2: {
     width: 500,
     height: 500,
-    nextPrice: 6000,
+    nextPrice: 12000,
   },
   3: {
     width: 600,
@@ -67,7 +67,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const refreshRankingButton = document.getElementById("refreshRankingButton");
   const judgeButton = document.getElementById("judgeButton");
   const battleStartButton = document.getElementById("battleStartButton");
-  const restartBattleButton = document.getElementById("restartBattleButton");
   const battleStatusText = document.getElementById("battleStatusText");
   const returnTitleButton = document.getElementById("returnTitleButton");
   const goDrawButton = document.getElementById("goDrawButton");
@@ -123,7 +122,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
   let fallenCharacter = null;
-  let money = 10000;
+  let money = 0;
   let unlockedColors = ["#000000"];
   let inkTankLevel = 1;
   let canvasLevel = 1;
@@ -494,24 +493,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     startCardCooldownLoop();
   });
 
-  bindClick(restartBattleButton, "restartBattleButton", () => {
-    if (!battleManager || !areAllSlotsFilled(characterSlots)) {
-      return;
-    }
-
-    battleManager.setStage(currentStage);
-    battleManager.setFallenCharacter(fallenCharacter);
-    battleManager.setInvasionCharacters(invasionCharacters);
-    hideBattleResult();
-    battleManager.startBattle(characterSlots);
-    resetCardCooldowns(characterSlots);
-    renderBattleSlotCards(characterSlots, {
-      battleManager,
-      cardCooldowns,
-    });
-    startCardCooldownLoop();
-  });
-
   bindClick(backDrawButton, "backDrawButton", () => {
     currentCharacter = null;
     clearCurrentResult();
@@ -648,7 +629,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         isStageClearReplacementMode = false;
         isHandlingStageClear = false;
 
-        money = 10000;
+        money = 0;
         unlockedColors = ["#000000"];
         inkTankLevel = 1;
         canvasLevel = 1;
@@ -660,7 +641,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
       characterSlots = savedCharacterSlots;
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
-      money = savedRunData.money ?? 10000;
+      money = savedRunData.money ?? 0;
       unlockedColors = savedRunData.unlockedColors ?? ["#000000"];
       inkTankLevel = savedRunData.inkTankLevel ?? 1;
       canvasLevel = savedRunData.canvasLevel ?? 1;
@@ -779,7 +760,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     cardCooldowns.clear();
     clearCurrentResult();
 
-    money = 10000;
+    money = 0;
     unlockedColors = ["#000000"];
     inkTankLevel = 1;
     canvasLevel = 1;
@@ -791,6 +772,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       unlockedColors,
       inkTankLevel,
       canvasLevel,
+    });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
     });
 
     drawingCanvas?.clearCanvas();
@@ -864,7 +850,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     invasionCharacters = [];
     cardCooldowns.clear();
 
-    money = 10000;
+    money = 0;
     unlockedColors = ["#000000"];
     inkTankLevel = 1;
     canvasLevel = 1;
@@ -910,9 +896,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const nextPlayerName = playerName || playerNameInput?.value.trim() || "익명";
 
+    const bestPartyPower = Math.max(
+      ...characterSlots
+        .filter(Boolean)
+        .map((character) => Number(character.stats?.power) || 0),
+      0,
+    );
+
     const rankingData = {
       playerName: nextPlayerName,
       reachedStage: currentStage,
+      bestPartyPower,
       characterSlots: characterSlots.map((character) => {
         if (!character) {
           return null;
@@ -1462,6 +1456,7 @@ function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel 
     const color = button.dataset.shopColor;
     const price = Number(button.dataset.price);
     const isPurchased = unlockedColors.includes(color);
+    const colorName = getShopColorName(color);
 
     if (isPurchased) {
       button.textContent = "구매 완료";
@@ -1470,6 +1465,7 @@ function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel 
       return;
     }
 
+    button.textContent = `${colorName} 해금 - ${price}원`;
     button.classList.remove("purchased");
     button.disabled = money < price;
   });
@@ -1515,6 +1511,18 @@ function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel 
   inkTankUpgradeButton.textContent =
     `잉크통 업그레이드 Lv.${nextInkTankLevel} - ${nextInkTankPrice}원`;
   inkTankUpgradeButton.disabled = money < nextInkTankPrice;
+}
+
+function getShopColorName(color) {
+  const colorNames = {
+    "#0066ff": "파랑",
+    "#ffeb00": "노랑",
+    "#ff0000": "빨강",
+    "#8e24aa": "보라",
+    "#00c853": "녹색",
+  };
+
+  return colorNames[color] ?? "색상";
 }
 
 function getMaxInkBySize(width, height, inkTankLevel) {

@@ -25,24 +25,24 @@ const ABSOLUTE_POWER_LIMIT = 19500;
 
 const SUMMON_COST_RANGE_BY_GRADE = {
   C: {
-    min: 70,
-    max: 110,
+    min: 100,
+    max: 140,
   },
   B: {
-    min: 90,
-    max: 135,
+    min: 120,
+    max: 160,
   },
   A: {
-    min: 120,
-    max: 180,
+    min: 145,
+    max: 190,
   },
   S: {
-    min: 160,
-    max: 240,
+    min: 170,
+    max: 230,
   },
   SS: {
-    min: 200,
-    max: 300,
+    min: 195,
+    max: 270,
   },
 };
 
