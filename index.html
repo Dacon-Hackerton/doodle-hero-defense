@@ -54,41 +54,6 @@
             </div>
           </div>
 
-          <div class="shop-section">
-            <h3>상점</h3>
-            <p id="moneyText">보유 돈: 10000원</p>
-
-            <div class="shop-items">
-              <button type="button" class="shop-color-item" data-shop-color="#0066ff" data-price="1000">
-                파랑 해금 - 1000원
-              </button>
-
-              <button type="button" class="shop-color-item" data-shop-color="#ffeb00" data-price="1000">
-                노랑 해금 - 1000원
-              </button>
-
-              <button type="button" class="shop-color-item" data-shop-color="#ff0000" data-price="1000">
-                빨강 해금 - 1000원
-              </button>
-
-              <button type="button" class="shop-color-item" data-shop-color="#8e24aa" data-price="1000">
-                보라 해금 - 1000원
-              </button>
-
-              <button type="button" class="shop-color-item" data-shop-color="#00c853" data-price="1000">
-                녹색 해금 - 1000원
-              </button>
-
-              <button type="button" id="inkTankUpgradeButton" class="shop-upgrade-item">
-                잉크통 업그레이드 Lv.2 - 2000원
-              </button>
-
-              <button type="button" id="canvasUpgradeButton" class="shop-upgrade-item">
-                캔버스 확장 Lv.2 - 3000원
-              </button>
-            </div>
-          </div>
-
           <div class="tool-group">
             <p id="inkText">잉크: 100%</p>
           </div>
@@ -112,7 +77,7 @@
       </header>
 
       <div class="judge-result-layout">
-        <div id="currentResultCard" class="result-card hidden">
+        <div class="result-card">
           <h3 class="result-card-title">방금 감정한 캐릭터</h3>
 
           <img id="currentPreviewImage" alt="방금 감정한 캐릭터 미리보기" />
@@ -250,16 +215,6 @@
         </div>
       </div>
     </section>
-
-    <div id="toastMessage" class="toast-message hidden" role="status" aria-live="polite"></div>
-
-    <div id="appModal" class="app-modal hidden" role="dialog" aria-modal="true">
-      <div class="app-modal-panel">
-        <h2 id="appModalTitle"></h2>
-        <p id="appModalMessage"></p>
-        <div id="appModalActions" class="app-modal-actions"></div>
-      </div>
-    </div>
   </div>
 
   <script type="module" src="./src/js/main.js"></script>
