@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "build": "node src/js/generate-firebase-config.js"
+  }
+}

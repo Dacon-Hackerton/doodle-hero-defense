@@ -4,25 +4,25 @@ import { JudgeManager } from "./drawing/JudgeManager.js";
 import { StatCalculator } from "./drawing/StatCalculator.js";
 import { createCorruptedCharacter } from "./models/CharacterSchema.js";
 import {
-  addCorruptedCharacter,
   loadCurrentStage,
   saveCurrentStage,
 } from "./storage/LocalStorageManager.js";
 import { PlayerRunStorage } from "./storage/PlayerRunStorage.js";
 
 const DEFAULT_CARD_COOLDOWN = 3.0;
-const STAGE_CLEAR_REWARD = 5000;
-const INVASION_SAVE_CHANCE = 1;
+const STAGE_CLEAR_REWARD = 2000;
+const INVASION_SAVE_CHANCE = 0.05;
+const PLAYER_STAGE_GROWTH_RATE = 1.04;
 let firebaseManagerPromise = null;
 
 const INK_TANK_CONFIG = {
   1: {
     ratio: 0.5,
-    nextPrice: 2000,
+    nextPrice: 4000,
   },
   2: {
     ratio: 0.65,
-    nextPrice: 4000,
+    nextPrice: 8000,
   },
   3: {
     ratio: 0.8,
@@ -37,12 +37,12 @@ const CANVAS_CONFIG = {
   1: {
     width: 400,
     height: 400,
-    nextPrice: 3000,
+    nextPrice: 6000,
   },
   2: {
     width: 500,
     height: 500,
-    nextPrice: 6000,
+    nextPrice: 12000,
   },
   3: {
     width: 600,
@@ -63,9 +63,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const startButton = document.getElementById("startButton");
   const continueButton = document.getElementById("continueButton");
   const newGameButton = document.getElementById("newGameButton");
+  const playerNameInput = document.getElementById("playerNameInput");
+  const refreshRankingButton = document.getElementById("refreshRankingButton");
   const judgeButton = document.getElementById("judgeButton");
   const battleStartButton = document.getElementById("battleStartButton");
-  const restartBattleButton = document.getElementById("restartBattleButton");
   const battleStatusText = document.getElementById("battleStatusText");
   const returnTitleButton = document.getElementById("returnTitleButton");
   const goDrawButton = document.getElementById("goDrawButton");
@@ -80,6 +81,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const shopColorButtons = document.querySelectorAll(".shop-color-item");
   const inkTankUpgradeButton = document.getElementById("inkTankUpgradeButton");
   const canvasUpgradeButton = document.getElementById("canvasUpgradeButton");
+
+  const panelTabButtons = document.querySelectorAll(".panel-tab");
+  const panelContents = document.querySelectorAll(".panel-content");
+
+  panelTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetTab = button.dataset.panelTab;
+
+      panelTabButtons.forEach((tabButton) => {
+        tabButton.classList.toggle("active", tabButton === button);
+      });
+
+      panelContents.forEach((panel) => {
+        panel.classList.toggle("active", panel.id === `${targetTab}Panel`);
+      });
+    });
+  });
 
   battleSlotButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -104,14 +122,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   let isStageClearReplacementMode = false;
   let isHandlingStageClear = false;
   let fallenCharacter = null;
-  let money = 10000;
+  let money = 0;
   let unlockedColors = ["#000000"];
   let inkTankLevel = 1;
   let canvasLevel = 1;
+  let playerName = "";
 
   const hasSavedSlotData = await loadSavedRunData();
-
-  renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
 
   applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
 
@@ -120,6 +137,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     unlockedColors,
     inkTankLevel,
     canvasLevel,
+  });
+
+  renderDrawingUpgradeInfo({
+    canvasLevel,
+    inkTankLevel,
   });
 
   if (!hasSavedSlotData) {
@@ -131,12 +153,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateBattleStartButtonState();
   showScreen("startScreen");
 
-  bindClick(startButton, "startButton", () => {
+  loadAndRenderRankings();
+
+  bindClick(startButton, "startButton", async () => {
+    const nextPlayerName = playerNameInput?.value.trim() ?? "";
+
+    if (!nextPlayerName) {
+      showToast("닉네임을 입력해주세요.");
+      playerNameInput?.focus();
+      return;
+    }
+
+    playerName = nextPlayerName;
+    await saveCurrentRunData();
+
     showScreen("drawScreen");
   });
 
-  bindClick(continueButton, "continueButton", () => {
+  bindClick(continueButton, "continueButton", async () => {
+    const nextPlayerName = playerNameInput?.value.trim() ?? playerName;
+
+    if (nextPlayerName) {
+      playerName = nextPlayerName;
+      await saveCurrentRunData();
+    }
+
     showScreen("judgeScreen");
+  });
+
+  bindClick(refreshRankingButton, "refreshRankingButton", () => {
+    loadAndRenderRankings();
   });
 
   bindClick(newGameButton, "newGameButton", async () => {
@@ -178,6 +224,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       drawingCanvas,
       judgeManager: currentJudgeManager,
       characterNameInput,
+      canvasLevel,
+      currentStage,
     });
 
     currentJudgeManager.renderResult(currentCharacter);
@@ -233,6 +281,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     renderShopState({ money, unlockedColors, inkTankLevel, canvasLevel });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
+    });
+
     saveCurrentRunData();
   });
 
@@ -283,6 +337,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       unlockedColors,
       inkTankLevel,
       canvasLevel,
+    });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
     });
 
     saveCurrentRunData();
@@ -413,30 +472,18 @@ document.addEventListener("DOMContentLoaded", async () => {
           await handleStageClear();
         }
 
+        if (battleResult.result === "LOSE") {
+          await handleGameOver();
+        }
+
         showBattleResult(battleResult.state);
       });
     }
 
     battleManager.setStatusElement(battleStatusText);
     battleManager.setStage(currentStage);
+    battleManager.setFallenCharacter(fallenCharacter);
     battleManager.setInvasionCharacters(invasionCharacters);
-    battleManager.startBattle(characterSlots);
-    resetCardCooldowns(characterSlots);
-    renderBattleSlotCards(characterSlots, {
-      battleManager,
-      cardCooldowns,
-    });
-    startCardCooldownLoop();
-  });
-
-  bindClick(restartBattleButton, "restartBattleButton", () => {
-    if (!battleManager || !areAllSlotsFilled(characterSlots)) {
-      return;
-    }
-
-    battleManager.setStage(currentStage);
-    battleManager.setInvasionCharacters(invasionCharacters);
-    hideBattleResult();
     battleManager.startBattle(characterSlots);
     resetCardCooldowns(characterSlots);
     renderBattleSlotCards(characterSlots, {
@@ -582,7 +629,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         isStageClearReplacementMode = false;
         isHandlingStageClear = false;
 
-        money = 10000;
+        money = 0;
         unlockedColors = ["#000000"];
         inkTankLevel = 1;
         canvasLevel = 1;
@@ -594,10 +641,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       isStageClearReplacementMode = savedRunData.isStageClearReplacementMode ?? false;
       characterSlots = savedCharacterSlots;
       selectedSlotIndex = savedRunData.selectedSlotIndex ?? null;
-      money = savedRunData.money ?? 10000;
+      money = savedRunData.money ?? 0;
       unlockedColors = savedRunData.unlockedColors ?? ["#000000"];
       inkTankLevel = savedRunData.inkTankLevel ?? 1;
       canvasLevel = savedRunData.canvasLevel ?? 1;
+      playerName = savedRunData.playerName ?? "";
+
+      if (playerNameInput) {
+        playerNameInput.value = playerName;
+      }
 
       if (selectedSlotIndex === null || !characterSlots[selectedSlotIndex]) {
         selectedSlotIndex = characterSlots.findIndex(
@@ -638,6 +690,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         unlockedColors,
         inkTankLevel,
         canvasLevel,
+        playerName,
         savedAt: Date.now(),
       });
       saveCurrentStage(currentStage);
@@ -707,7 +760,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     cardCooldowns.clear();
     clearCurrentResult();
 
-    money = 10000;
+    money = 0;
     unlockedColors = ["#000000"];
     inkTankLevel = 1;
     canvasLevel = 1;
@@ -719,6 +772,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       unlockedColors,
       inkTankLevel,
       canvasLevel,
+    });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
     });
 
     drawingCanvas?.clearCanvas();
@@ -760,6 +818,145 @@ document.addEventListener("DOMContentLoaded", async () => {
     isHandlingStageClear = false;
   }
 
+  async function handleGameOver() {
+    const rankings = await loadCurrentRankingsOnly();
+
+    if (shouldRegisterRanking(rankings, currentStage)) {
+      await savePlayerRanking();
+    }
+
+    const nextRankings = await loadCurrentRankingsOnly();
+
+    renderRankingList(nextRankings, "battleResultRanking");
+    renderRankingList(nextRankings, "rankingList");
+
+    await resetRunAfterGameOver();
+  }
+
+  async function resetRunAfterGameOver() {
+    battleManager?.stop();
+    stopCardCooldownLoop();
+
+    const savedPlayerName = playerName || playerNameInput?.value.trim() || "";
+
+    currentCharacter = null;
+    selectedCharacter = null;
+    selectedSlotIndex = null;
+    characterSlots = [null, null, null];
+    currentStage = 1;
+    isStageClearReplacementMode = false;
+    isHandlingStageClear = false;
+    fallenCharacter = null;
+    invasionCharacters = [];
+    cardCooldowns.clear();
+
+    money = 0;
+    unlockedColors = ["#000000"];
+    inkTankLevel = 1;
+    canvasLevel = 1;
+    playerName = savedPlayerName;
+
+    clearCurrentResult();
+    drawingCanvas?.clearCanvas();
+
+    applyCanvasLevelToDrawingCanvas(drawingCanvas, canvasLevel, inkTankLevel);
+
+    renderShopState({
+      money,
+      unlockedColors,
+      inkTankLevel,
+      canvasLevel,
+    });
+
+    renderDrawingUpgradeInfo({
+      canvasLevel,
+      inkTankLevel,
+    });
+
+    renderCharacterSlots(characterSlots, selectedSlotIndex);
+    updateBattleStartButtonState();
+    updateComparisonVisibility();
+
+    await PlayerRunStorage.clearRunData();
+    saveCurrentStage(currentStage);
+
+    if (playerNameInput) {
+      playerNameInput.value = playerName;
+    }
+
+    updateStartActions(false);
+  }
+
+  async function savePlayerRanking() {
+    const firebaseManager = await getFirebaseManager();
+
+    if (!firebaseManager?.saveRankingToFirebase) {
+      return null;
+    }
+
+    const nextPlayerName = playerName || playerNameInput?.value.trim() || "익명";
+
+    const bestPartyPower = Math.max(
+      ...characterSlots
+        .filter(Boolean)
+        .map((character) => Number(character.stats?.power) || 0),
+      0,
+    );
+
+    const rankingData = {
+      playerName: nextPlayerName,
+      reachedStage: currentStage,
+      bestPartyPower,
+      characterSlots: characterSlots.map((character) => {
+        if (!character) {
+          return null;
+        }
+
+        return {
+          name: character.name ?? "낙서",
+          grade: character.grade ?? "C",
+          power: character.stats?.power ?? 0,
+          imageData: character.imageData ?? "",
+          stats: {
+            attack: character.stats?.attack ?? 0,
+            hp: character.stats?.hp ?? 0,
+            speed: character.stats?.speed ?? 0,
+            attackSpeed: character.stats?.attackSpeed ?? 0,
+            range: character.stats?.range ?? 0,
+            cost: character.stats?.cost ?? 0,
+          },
+        };
+      }),
+    };
+
+    return await firebaseManager.saveRankingToFirebase(rankingData);
+  }
+
+  async function loadCurrentRankingsOnly() {
+    const firebaseManager = await getFirebaseManager();
+
+    if (!firebaseManager?.loadRankingsFromFirebase) {
+      return [];
+    }
+
+    return await firebaseManager.loadRankingsFromFirebase();
+  }
+
+  function shouldRegisterRanking(rankings, reachedStage) {
+    if (!Array.isArray(rankings)) {
+      return true;
+    }
+
+    if (rankings.length < 10) {
+      return true;
+    }
+
+    const lastRanking = rankings[rankings.length - 1];
+    const lastStage = Number(lastRanking?.reachedStage) || 0;
+
+    return reachedStage > lastStage;
+  }
+
   function showBattleResult(result) {
     const overlay = document.getElementById("battleResultOverlay");
     const title = document.getElementById("battleResultTitle");
@@ -774,7 +971,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     title.textContent = isWin ? "승리!" : "패배...";
     message.textContent = isWin
       ? "적 기지를 파괴했습니다. 새로운 낙서를 그려 다음 전투를 준비하세요."
-      : "아군 기지가 파괴되었습니다. 다시 도전하거나 새로운 낙서를 그려보세요.";
+      : "아군 기지가 파괴되었습니다. 기록을 랭킹에 반영하고 처음부터 다시 시작합니다.";
 
     overlay.hidden = false;
     overlay.classList.remove("hidden");
@@ -901,10 +1098,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function markCharacterAsCorrupted(character, stage) {
-    const corruptedCharacter = createCorruptedCharacter(character, stage);
-    addCorruptedCharacter(corruptedCharacter);
-
-    return corruptedCharacter;
+    return createCorruptedCharacter(character, stage);
   }
 
   window.__debugAddCorruptedCharacter = (character) => {
@@ -950,6 +1144,20 @@ async function getFirebaseManager(timeoutMs = 2000) {
       setTimeout(() => resolve(null), timeoutMs);
     }),
   ]);
+}
+
+async function loadAndRenderRankings(targetElementId = "rankingList") {
+  const firebaseManager = await getFirebaseManager();
+
+  if (!firebaseManager?.loadRankingsFromFirebase) {
+    renderRankingList([], targetElementId);
+    return [];
+  }
+
+  const rankings = await firebaseManager.loadRankingsFromFirebase();
+  renderRankingList(rankings, targetElementId);
+
+  return rankings;
 }
 
 function updateStartActions(hasSavedSlotData) {
@@ -1062,19 +1270,64 @@ function createCharacterFromCurrentDrawing({
   drawingCanvas,
   judgeManager,
   characterNameInput,
+  canvasLevel = 1,
+  currentStage = 1,
 }) {
   const drawCanvas = document.getElementById("drawCanvas");
 
   const { stats, grade } = StatCalculator.createStatsAndGrade(drawCanvas, {
-    canvasLevel: 1,
+    canvasLevel,
   });
+
+  const grownStats = applyPlayerStageGrowth(stats, currentStage);
 
   return judgeManager.createCharacter({
     originalName: characterNameInput?.value ?? "",
     imageData: drawingCanvas.toImageData(),
-    stats,
+    stats: grownStats,
     grade,
   });
+}
+
+function applyPlayerStageGrowth(stats, currentStage = 1) {
+  const safeStage = Math.max(1, Math.floor(Number(currentStage) || 1));
+  const multiplier = Math.pow(PLAYER_STAGE_GROWTH_RATE, safeStage - 1);
+
+  const grownStats = { ...stats };
+
+  const scaleIntegerStats = [
+    "attack",
+    "hp",
+    "range",
+    "defense",
+    "hpRegen",
+    "power",
+  ];
+
+  scaleIntegerStats.forEach((key) => {
+    if (Number.isFinite(Number(grownStats[key]))) {
+      grownStats[key] = Math.max(0, Math.round(Number(grownStats[key]) * multiplier));
+    }
+  });
+
+  const scaleDecimalStats = [
+    "speed",
+    "attackSpeed",
+  ];
+
+  scaleDecimalStats.forEach((key) => {
+    if (Number.isFinite(Number(grownStats[key]))) {
+      grownStats[key] = Math.max(
+        0,
+        Math.round(Number(grownStats[key]) * multiplier * 100) / 100,
+      );
+    }
+  });
+
+  // 소환 비용은 강화 배수로 올리지 않는 게 좋음
+  grownStats.cost = stats.cost;
+
+  return grownStats;
 }
 
 function renderBattleSlotCards(characterSlots, { battleManager, cardCooldowns } = {}) {
@@ -1203,6 +1456,7 @@ function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel 
     const color = button.dataset.shopColor;
     const price = Number(button.dataset.price);
     const isPurchased = unlockedColors.includes(color);
+    const colorName = getShopColorName(color);
 
     if (isPurchased) {
       button.textContent = "구매 완료";
@@ -1211,6 +1465,7 @@ function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel 
       return;
     }
 
+    button.textContent = `${colorName} 해금 - ${price}원`;
     button.classList.remove("purchased");
     button.disabled = money < price;
   });
@@ -1258,6 +1513,18 @@ function renderShopState({ money, unlockedColors, inkTankLevel = 1, canvasLevel 
   inkTankUpgradeButton.disabled = money < nextInkTankPrice;
 }
 
+function getShopColorName(color) {
+  const colorNames = {
+    "#0066ff": "파랑",
+    "#ffeb00": "노랑",
+    "#ff0000": "빨강",
+    "#8e24aa": "보라",
+    "#00c853": "녹색",
+  };
+
+  return colorNames[color] ?? "색상";
+}
+
 function getMaxInkBySize(width, height, inkTankLevel) {
   const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
 
@@ -1291,4 +1558,96 @@ function getMaxInkByInkTankLevel(canvas, inkTankLevel) {
   const config = INK_TANK_CONFIG[inkTankLevel] ?? INK_TANK_CONFIG[1];
 
   return Math.floor(canvas.width * canvas.height * config.ratio);
+}
+
+function renderDrawingUpgradeInfo({ canvasLevel, inkTankLevel }) {
+  const canvasLevelText = document.getElementById("canvasLevelText");
+  const inkTankLevelText = document.getElementById("inkTankLevelText");
+
+  const canvasConfig = getCanvasConfig(canvasLevel);
+
+  if (canvasLevelText) {
+    canvasLevelText.textContent =
+      `캔버스 Lv.${canvasLevel} / ${canvasConfig.width}×${canvasConfig.height}`;
+  }
+
+  if (inkTankLevelText) {
+    inkTankLevelText.textContent = `잉크통 Lv.${inkTankLevel}`;
+  }
+}
+
+function renderRankingList(rankings, targetElementId = "rankingList") {
+  const rankingList = document.getElementById(targetElementId);
+
+  if (!rankingList) {
+    return;
+  }
+
+  if (!Array.isArray(rankings) || rankings.length === 0) {
+    rankingList.innerHTML = `<p class="ranking-empty">아직 등록된 랭킹이 없습니다.</p>`;
+    return;
+  }
+
+  const topRankings = rankings.slice(0, 10);
+
+  rankingList.innerHTML = topRankings
+    .map((ranking, index) => {
+      const slots = Array.isArray(ranking.characterSlots)
+        ? ranking.characterSlots
+        : [];
+
+      const slotHtml = slots
+        .map((slot) => {
+          if (!slot) {
+            return `<span class="ranking-character empty">빈 슬롯</span>`;
+          }
+
+          const stats = slot.stats ?? {};
+          const slotName = slot.name ?? "낙서";
+          const slotGrade = slot.grade ?? "C";
+          const slotPower = slot.power ?? 0;
+
+          const statTitle =
+            `이름: ${slotName}\n` +
+            `등급: ${slotGrade}\n` +
+            `전투력: ${slotPower}\n` +
+            `공격력: ${stats.attack ?? 0}\n` +
+            `체력: ${stats.hp ?? 0}\n` +
+            `이동속도: ${stats.speed ?? 0}\n` +
+            `공격속도: ${stats.attackSpeed ?? 0}\n` +
+            `사거리: ${stats.range ?? 0}\n` +
+            `소환비용: ${stats.cost ?? 0}`;
+
+          const imageHtml = slot.imageData
+            ? `<img src="${slot.imageData}" alt="${slotName}" />`
+            : "";
+
+          return `
+            <span class="ranking-character" title="${statTitle}">
+              ${imageHtml}
+              <span>${slotName}</span>
+              <small>${slotGrade} / ${slotPower}</small>
+            </span>
+          `;
+        })
+        .join("");
+
+      return `
+        <div class="ranking-item">
+          <strong class="ranking-rank">${index + 1}</strong>
+
+          <div class="ranking-main">
+            <div class="ranking-player">
+              <b>${ranking.playerName ?? "익명"}</b>
+              <span>${ranking.reachedStage ?? 1} 스테이지</span>
+            </div>
+
+            <div class="ranking-characters">
+              ${slotHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
 }

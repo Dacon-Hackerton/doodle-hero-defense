@@ -13,10 +13,29 @@
       <div class="start-content">
         <h1>낙서 용사 디펜스</h1>
         <p>내가 그린 낙서가 전투 유닛이 되는 라인 디펜스 게임</p>
+        <div class="player-name-box">
+          <label for="playerNameInput">닉네임</label>
+          <input
+            type="text"
+            id="playerNameInput"
+            placeholder="닉네임을 입력하세요"
+            maxlength="12"
+          />
+        </div>
         <div class="start-actions">
           <button id="startButton" type="button" class="primary-btn">시작하기</button>
           <button id="continueButton" type="button" class="primary-btn hidden">이어하기</button>
           <button id="newGameButton" type="button" class="hidden">새 게임</button>
+        </div>
+        <div class="ranking-section">
+          <div class="ranking-header">
+            <h2>랭킹 TOP 10</h2>
+            <button id="refreshRankingButton" type="button">새로고침</button>
+          </div>
+
+          <div id="rankingList" class="ranking-list">
+            <p class="ranking-empty">랭킹을 불러오는 중...</p>
+          </div>
         </div>
       </div>
     </section>
@@ -28,11 +47,23 @@
       </header>
 
       <div class="draw-layout">
-        <canvas id="drawCanvas" width="400" height="400"></canvas>
+        <div class="canvas-area">
+          <p id="canvasLevelText">캔버스 Lv.1 / 400×400</p>
+          <canvas id="drawCanvas" width="400" height="400"></canvas>
 
-        <div class="draw-controls tool-panel">
-          <label>
-            캐릭터 이름
+          <div class="draw-main-actions">
+            <button id="judgeButton" type="button" class="primary-btn">감정하기</button>
+          </div>
+        </div>
+
+        <aside class="draw-controls tool-panel draw-side-panel">
+          <div class="side-panel-header">
+            <h2>낙서 작업실</h2>
+            <p>그림을 그리고 도구를 강화하세요</p>
+          </div>
+
+          <label class="character-name-field">
+            <span>캐릭터 이름</span>
             <input
               type="text"
               id="characterNameInput"
@@ -41,33 +72,105 @@
             />
           </label>
 
-          <div class="tool-group">
-            <p>색상 선택</p>
+          <div class="panel-tabs">
+            <button type="button" class="panel-tab active" data-panel-tab="tool">
+              🎨 도구
+            </button>
+            <button type="button" class="panel-tab" data-panel-tab="shop">
+              🛒 상점
+            </button>
+          </div>
 
-            <div class="color-palette">
-              <button type="button" class="color-btn active" data-color="#000000" style="background-color: #000000;" title="검정"></button>
-              <button type="button" class="color-btn" data-color="#0066ff" style="background-color: #0066ff;" title="파랑"></button>
-              <button type="button" class="color-btn" data-color="#ffeb00" style="background-color: #ffeb00;" title="노랑"></button>
-              <button type="button" class="color-btn" data-color="#ff0000" style="background-color: #ff0000;" title="빨강"></button>
-              <button type="button" class="color-btn" data-color="#8e24aa" style="background-color: #8e24aa;" title="보라"></button>
-              <button type="button" class="color-btn" data-color="#00c853" style="background-color: #00c853;" title="녹색"></button>
+          <div id="toolPanel" class="panel-content active">
+            <div class="panel-card">
+              <div class="panel-card-title">
+                <h3>그리기 도구</h3>
+                <span id="inkTankLevelText">잉크통 Lv.1</span>
+              </div>
+
+              <div class="ink-status-card">
+                <p id="inkText">잉크: 100%</p>
+              </div>
+
+              <div class="tool-group">
+                <label class="tool-label">색상 선택</label>
+
+                <div class="color-palette">
+                  <button type="button" class="color-btn active" data-color="#000000" style="background-color: #000000;" title="검정"></button>
+                  <button type="button" class="color-btn" data-color="#0066ff" style="background-color: #0066ff;" title="파랑"></button>
+                  <button type="button" class="color-btn" data-color="#ffeb00" style="background-color: #ffeb00;" title="노랑"></button>
+                  <button type="button" class="color-btn" data-color="#ff0000" style="background-color: #ff0000;" title="빨강"></button>
+                  <button type="button" class="color-btn" data-color="#8e24aa" style="background-color: #8e24aa;" title="보라"></button>
+                  <button type="button" class="color-btn" data-color="#00c853" style="background-color: #00c853;" title="녹색"></button>
+                </div>
+              </div>
+
+              <div class="tool-group">
+                <label class="tool-label" for="brushSizeInput">브러시 크기</label>
+                <input type="range" id="brushSizeInput" min="1" max="30" value="5" />
+              </div>
+
+              <div class="tool-button-grid">
+                <button id="eraserButton" type="button">지우개</button>
+                <button id="undoButton" type="button">되돌리기</button>
+                <button id="clearButton" type="button">전체 지우기</button>
+              </div>
             </div>
           </div>
 
-          <div class="tool-group">
-            <p id="inkText">잉크: 100%</p>
+          <div id="shopPanel" class="panel-content">
+            <div class="panel-card">
+              <div class="shop-header-card">
+                <div>
+                  <h3>상점</h3>
+                  <p>낙서 도구를 강화하세요</p>
+                </div>
+
+                <strong id="moneyText">보유 돈: 0원</strong>
+              </div>
+
+              <div class="shop-category">
+                <h4>색상 해금</h4>
+
+                <div class="shop-items">
+                  <button type="button" class="shop-color-item" data-shop-color="#0066ff" data-price="2000">
+                    파랑 해금 - 2000원
+                  </button>
+
+                  <button type="button" class="shop-color-item" data-shop-color="#ffeb00" data-price="2000">
+                    노랑 해금 - 2000원
+                  </button>
+
+                  <button type="button" class="shop-color-item" data-shop-color="#ff0000" data-price="2000">
+                    빨강 해금 - 2000원
+                  </button>
+
+                  <button type="button" class="shop-color-item" data-shop-color="#8e24aa" data-price="2000">
+                    보라 해금 - 2000원
+                  </button>
+
+                  <button type="button" class="shop-color-item" data-shop-color="#00c853" data-price="2000">
+                    녹색 해금 - 2000원
+                  </button>
+                </div>
+              </div>
+
+              <div class="shop-category">
+                <h4>도구 업그레이드</h4>
+
+                <div class="shop-items">
+                  <button type="button" id="inkTankUpgradeButton" class="shop-upgrade-item">
+                    잉크통 업그레이드 Lv.2 - 4000원
+                  </button>
+
+                  <button type="button" id="canvasUpgradeButton" class="shop-upgrade-item">
+                    캔버스 확장 Lv.2 - 6000원
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <label>
-            브러시 크기
-            <input type="range" id="brushSizeInput" min="1" max="30" value="5" />
-          </label>
-
-          <button id="eraserButton" type="button">지우개</button>
-          <button id="undoButton" type="button">되돌리기</button>
-          <button id="clearButton" type="button">전체 지우기</button>
-          <button id="judgeButton" type="button" class="primary-btn">감정하기</button>
-        </div>
+        </aside>
       </div>
     </section>
 
@@ -197,7 +300,6 @@
       </div>
 
       <div class="battle-controls">
-        <button id="restartBattleButton" type="button">Restart Battle</button>
         <p id="battleStatusText" aria-live="polite">READY | Cost 0 / 1000</p>
       </div>
 
@@ -205,6 +307,8 @@
         <div class="battle-result-panel">
           <h2 id="battleResultTitle">승리!</h2>
           <p id="battleResultMessage">전투가 종료되었습니다.</p>
+
+          <div id="battleResultRanking" class="ranking-list battle-result-ranking"></div>
 
           <div class="battle-result-actions">
             <button id="returnTitleButton" type="button">타이틀로 돌아가기</button>
