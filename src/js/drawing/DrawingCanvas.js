@@ -344,4 +344,28 @@ export class DrawingCanvas {
   toImageData() {
     return this.canvas.toDataURL("image/png");
   }
+
+  setCanvasSize(width, height, maxInk) {
+    if (!this.canvas) {
+      return;
+    }
+
+    this.canvas.width = width;
+    this.canvas.height = height;
+
+    this.maxInk = maxInk;
+    this.usedInk = 0;
+
+    if (this.ctx) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    if (Array.isArray(this.history)) {
+      this.history = [];
+    }
+
+    if (typeof this.updateInkText === "function") {
+      this.updateInkText();
+    }
+  }
 }
